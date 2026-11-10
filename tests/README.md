@@ -8,7 +8,8 @@
 
 | 文件 | 作用 |
 |---|---|
-| `test_objects.py` | 完整流程、安全拒绝、颜色识别和取色的测试 |
+| `test_objects.py` | 完整流程、安全拒绝、颜色识别和取色的测试,不需要 ROS |
+| `test_motion.py` | 运动学、IK、积分笛卡尔、`via_then_rrt` 绕障;需要 ROS 环境和 G2 的 URDF,缺了就跳过 |
 
 ## 和哪里联动
 

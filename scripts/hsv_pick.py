@@ -95,7 +95,7 @@ def main():
         interactive(args.name, lambda: image)
         return
 
-    from task_board_pose.vision.rgbd_source import RosSource    # 放这里,用图片时不需要 ROS
+    from harness.perception.rgbd_source import RosSource    # 放这里,用图片时不需要 ROS
     source = RosSource("robot_harness_hsv_pick")
 
     def next_frame():

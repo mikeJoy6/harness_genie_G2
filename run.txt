@@ -9,22 +9,21 @@
 source ~/agi@g2_robot/env_g2.sh
 ros2 launch genie_robot_agibot_g2_hardware hardware.launch.py end_effector:=true use_head_cloud:=false
 
-# 终端 2:处理器
-source ~/.cache/agibot/app/env.sh
+# 终端 2:移到 look 位姿(全身会动,先挪开桌子;打印关节变化后输入 y 才动,Ctrl-C 取消)
 source ~/agi@g2_robot/env_g2.sh
-ros2 run task_board_pose processor
-
-# 终端 3:移到 look 位姿(全身会动,先挪开桌子)
-source ~/agi@g2_robot/env_g2.sh
-ros2 run task_board_pose request goto_pose look speed=0.2
-ros2 run task_board_pose request goto_pose look groups=head speed=0.2     # 只动头
+cd ~/robot_harness
+python3 scripts/goto_pose.py --list
+python3 scripts/goto_pose.py look
+python3 scripts/goto_pose.py look --groups head          # 只动头
+python3 scripts/goto_pose.py look --speed 0.1            # 更慢
 
 
 
 # ── 抬高左臂(末端要比物体高 13cm 以上)──────────────────
 
 source ~/agi@g2_robot/env_g2.sh
-ros2 run genie_robot_agibot_g2_motion motion_cli
+cd ~/robot_harness
+python3 scripts/motion_cli.py
 #   [left]> pose
 #   [left]> move 0 0 0.20        打印规划后输入 y 才动
 #   [left]> quit
@@ -76,4 +75,5 @@ python3 -c "import json,glob; [print(json.loads(l)['kind'], json.dumps(json.load
 # ── 测试 ─────────────────────────────────────────────
 
 cd ~/robot_harness
-python3 -m pytest tests -q
+python3 -m pytest tests -q                                # 不 source ROS:只测 harness 逻辑
+source /opt/ros/humble/setup.bash && python3 -m pytest tests -q   # 加上运控与绕障规划的测试

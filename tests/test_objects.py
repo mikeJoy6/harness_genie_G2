@@ -117,7 +117,8 @@ def test_long_travel_refused():
 
 def test_start_below_table_refused():
     backend, gateway = located(end=(0.4, 0.3, 0.60))
-    assert "穿过桌面" in gateway.execute("approach_object", {})["error"]
+    result = gateway.execute("approach_object", {})
+    assert "穿过桌面" in result["error"] and result["executed"] is False
     assert backend.executed == []
 
 

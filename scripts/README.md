@@ -10,6 +10,8 @@
 |---|---|
 | `run_task.py` | 启动 harness |
 | `hsv_pick.py` | 在头部画面上点选颜色,存入 `configs/colors.yaml` |
+| `motion_cli.py` | 手臂交互命令行(`move`、`line`、`goto`、`detour`),复制自 `agi@g2_robot` |
+| `goto_pose.py` | 全身移到 `configs/poses.yaml` 里录好的位姿,带碰撞检查和人工确认 |
 
 ## 和哪里联动
 
@@ -36,6 +38,14 @@ python3 scripts/run_task.py --real --plan-only "让左臂末端靠近红色积�
 
 # 真机:交互模式,一行一条指令,输入 q 退出
 python3 scripts/run_task.py --real
+```
+
+移到起始位姿(打印关节变化后输入 `y` 才动):
+
+```bash
+source ~/agi@g2_robot/env_g2.sh
+python3 scripts/goto_pose.py look
+python3 scripts/goto_pose.py look --groups head
 ```
 
 新增一种颜色(左键点物体,`s` 保存,`q` 退出):

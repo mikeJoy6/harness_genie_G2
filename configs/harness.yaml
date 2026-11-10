@@ -15,7 +15,7 @@ motion:
   standoff_max_m: 0.40
   max_travel_m: 0.70        # 一次最多移动多远
   detection_max_age_s: 30   # 积木识别结果多久后作废
-  min_start_above_block_m: 0.13  # 起点要比积木高这么多,防止直线穿过桌面
+  min_path_above_object_m: 0.13  # 整条路径上末端都要比物体高这么多,防止穿过桌面
   max_moves_per_command: 1  # 一条指令最多动几次
   workspace:                # 目标点必须在此范围内(base_link,米)
     x: [0.20, 0.85]

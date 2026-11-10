@@ -1,0 +1,93 @@
+find:
+  groups:
+  - body
+  - head
+  - left_arm
+  - right_arm
+  joints:
+    idx01_body_joint1: -0.97744
+    idx02_body_joint2: 2.05453
+    idx03_body_joint3: -0.91499
+    idx04_body_joint4: 0.0
+    idx05_body_joint5: 0.0
+    idx11_head_joint1: 0.0
+    idx12_head_joint2: 0.0
+    idx13_head_joint3: 0.51907
+    idx21_arm_l_joint1: 2.59483
+    idx22_arm_l_joint2: -1.57059
+    idx23_arm_l_joint3: -1.57073
+    idx24_arm_l_joint4: -1.64142
+    idx25_arm_l_joint5: -0.00027
+    idx26_arm_l_joint6: -0.95226
+    idx27_arm_l_joint7: -0.00023
+    idx61_arm_r_joint1: -2.10483
+    idx62_arm_r_joint2: -1.57086
+    idx63_arm_r_joint3: 1.57079
+    idx64_arm_r_joint4: -2.2295
+    idx65_arm_r_joint5: 9.0e-05
+    idx66_arm_r_joint6: 0.1257
+    idx67_arm_r_joint7: 1.0e-05
+  note: ''
+  recorded: '2026-11-03 22:39:52'
+look:
+  groups:
+  - body
+  - head
+  - left_arm
+  - right_arm
+  joints:
+    idx01_body_joint1: -0.82771
+    idx02_body_joint2: 1.63668
+    idx03_body_joint3: -0.46397
+    idx04_body_joint4: 0.0
+    idx05_body_joint5: 0.0
+    idx11_head_joint1: 0.0
+    idx12_head_joint2: 0.0
+    idx13_head_joint3: 0.29889
+    idx21_arm_l_joint1: -0.35839
+    idx22_arm_l_joint2: -0.5207
+    idx23_arm_l_joint3: 0.93087
+    idx24_arm_l_joint4: -1.57847
+    idx25_arm_l_joint5: -2.20286
+    idx26_arm_l_joint6: 0.55368
+    idx27_arm_l_joint7: 0.02537
+    idx61_arm_r_joint1: -1.74237
+    idx62_arm_r_joint2: -1.57088
+    idx63_arm_r_joint3: 1.57083
+    idx64_arm_r_joint4: -1.51125
+    idx65_arm_r_joint5: -9.0e-05
+    idx66_arm_r_joint6: -0.59862
+    idx67_arm_r_joint7: -3.0e-05
+  note: ''
+  recorded: '2026-11-03 22:08:15'
+zero:
+  groups:
+  - body
+  - head
+  - left_arm
+  - right_arm
+  joints:
+    idx01_body_joint1: -0.69763
+    idx02_body_joint2: 1.57044
+    idx03_body_joint3: -0.87185
+    idx04_body_joint4: 0.0
+    idx05_body_joint5: 0.0
+    idx11_head_joint1: 0.0
+    idx12_head_joint2: 0.0
+    idx13_head_joint3: 0.0
+    idx21_arm_l_joint1: 1.5708
+    idx22_arm_l_joint2: -1.5708
+    idx23_arm_l_joint3: -1.5708
+    idx24_arm_l_joint4: -1.57079
+    idx25_arm_l_joint5: 0.0
+    idx26_arm_l_joint6: -0.0
+    idx27_arm_l_joint7: -0.0
+    idx61_arm_r_joint1: -1.5708
+    idx62_arm_r_joint2: -1.5708
+    idx63_arm_r_joint3: 1.5708
+    idx64_arm_r_joint4: -1.5708
+    idx65_arm_r_joint5: 0.0
+    idx66_arm_r_joint6: 0.0
+    idx67_arm_r_joint7: 0.0
+  note: ''
+  recorded: '2026-11-03 22:13:21'

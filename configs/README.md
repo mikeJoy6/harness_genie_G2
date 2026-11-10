@@ -12,6 +12,7 @@
 |---|---|
 | `harness.yaml` | 模型、运动、视觉的配置 |
 | `colors.yaml` | 可识别的颜色,由 `scripts/hsv_pick.py` 添加 |
+| `poses.yaml` | 录好的全身位姿(`look`、`find`、`zero`),`scripts/goto_pose.py` 读取;复制自 `agi@g2_robot` |
 
 ## 和哪里联动
 

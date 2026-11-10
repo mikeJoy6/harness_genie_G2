@@ -25,6 +25,9 @@
 | `loop.py` | 循环:问模型 → 执行工具 → 把结果告诉模型 |
 | `llm.py` | 通过 HTTP 调用 DeepSeek |
 | `gateway.py` | 关卡:计算目标点,所有安全检查都在这里 |
+| `colors.py` | 颜色表读写、由采样像素计算 HSV 范围 |
+| `motion/` | 运控与绕障规划,见其 README |
+| `perception/` | 头部 RGBD,见其 README |
 
 ## 和哪里联动
 
@@ -33,6 +36,7 @@ scripts/run_task.py  组装下面所有东西
 loop.py ── chat() ──→ llm.py ──→ DeepSeek
 loop.py ── tools/objects.py 告诉模型有哪些工具
 loop.py ── execute() ──→ gateway.py ──→ backends/fake.py 或 ros.py
+                                          ros.py ──→ motion/(规划、执行)+ perception/(相机)
 loop.py ── 每一步写入 traces/
 configs/harness.yaml ── 提供 gateway 的限制值和 llm 的模型名
 ```

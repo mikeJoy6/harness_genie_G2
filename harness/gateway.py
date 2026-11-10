@@ -73,20 +73,22 @@ class Gateway:
         travel = math.dist(start, target)
         if travel > cfg["max_travel_m"]:
             return {"ok": False, "error": f"移动距离 {travel:.2f}m 超过上限 {cfg['max_travel_m']}m"}
-        if start[2] < self.target[2] + cfg["min_start_above_block_m"]:
-            return {"ok": False, "error": f"末端高度 {start[2]:.2f}m 不够高,直线靠近可能穿过桌面。"
-                                          "请用户先把左臂移到桌面上方。"}
 
         plan = self.backend.plan_left_to(target)
         info = {"target_xyz_m": _round(target), "standoff_m": round(standoff, 3),
                 "travel_m": round(travel, 3), "plan": plan["summary"] if plan["ok"] else None}
         if not plan["ok"]:
             return {"ok": False, "executed": False, "error": f"规划失败:{plan['error']}", **info}
+        floor = self.target[2] + cfg["min_path_above_object_m"]
+        if plan["lowest_z_m"] < floor:
+            return {"ok": False, "executed": False,
+                    "error": f"路径最低点 {plan['lowest_z_m']:.2f}m 低于 {floor:.2f}m,可能穿过桌面。"
+                             "请用户先把左臂移到桌面上方。", **info}
         if self.plan_only:
             return {"ok": True, "executed": False, "note": "只规划模式,机器人没有动", **info}
         if self.confirm and not self.confirm(
-                f"左臂末端将直线移动 {travel * 100:.1f}cm 到 {_round(target)}"
-                f"(物体上方 {standoff * 100:.0f}cm),{plan['summary']}。输入 y 执行:"):
+                f"左臂末端将移动到 {_round(target)}(直线距离 {travel * 100:.1f}cm"
+                f",物体上方 {standoff * 100:.0f}cm),{plan['summary']}。输入 y 执行:"):
             return {"ok": False, "executed": False, "error": "用户拒绝了这次运动", **info}
 
         self.moves += 1

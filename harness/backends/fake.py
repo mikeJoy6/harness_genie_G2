@@ -20,7 +20,8 @@ class FakeBackend:
     def plan_left_to(self, target):
         if self.plan_error:
             return {"ok": False, "error": self.plan_error}
-        return {"ok": True, "target": list(target), "summary": "假规划"}
+        return {"ok": True, "target": list(target), "summary": "假规划",
+                "lowest_z_m": min(self.end[2], target[2])}             # 直线路径的最低点在两端之一
 
     def execute(self, plan):
         self.executed.append(plan["target"])

@@ -18,20 +18,20 @@ Gateway 决定“能不能做”,这里负责“具体怎么做”。假机器�
 harness/gateway.py
    ├─ backends/fake.py
    └─ backends/ros.py
-        ├─ color_object.py                     按颜色找物体
-        ├─ agi@g2_robot 的 RosSource、Rgbd   相机取图、深度转 base_link
-        ├─ agi@g2_robot 的 ArmMotion         规划、自碰撞检查、发给 JTC
-        └─ 发布 TF:base_link → target_object    可在 RViz 里查看
+        ├─ color_object.py                 按颜色找物体
+        ├─ harness/perception/             相机取图、深度转 base_link
+        ├─ harness/motion/ArmMotion        直线规划 → 失败时 via_then_rrt 绕障 → 自碰撞 → JTC
+        └─ 发布 TF:base_link → target_object,可在 RViz 里查看
 ```
 
-`ros.py` 直接 import 已安装的 `agi@g2_robot` 包,所以运行前要 `source ~/agi@g2_robot/env_g2.sh`。
+`ros.py` 只 import 本项目的代码。运行前仍要 `source ~/agi@g2_robot/env_g2.sh`,那是为了 GDK 的 DDS 配置,不是为了 import 代码。
 
 ## 两个 backend 都要有的方法
 
 ```python
 locate_object(color, ranges)  # 返回 {"ok": True, "xyz_m": [x, y, z], ...}
 left_end_xyz()          # 返回 [x, y, z]
-plan_left_to(target)    # 返回 {"ok": True, "summary": "..."}
+plan_left_to(target)    # 返回 {"ok": True, "summary": "...", "lowest_z_m": 路径最低点}
 execute(plan)           # 返回 {"ok": True, "msg": "..."}
 close()
 ```

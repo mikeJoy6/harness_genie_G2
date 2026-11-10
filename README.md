@@ -22,7 +22,8 @@
 - **按颜色定位物体**:头部 RGBD 相机 + HSV 分割 + 多帧融合,输出 `base_link` 下的坐标,并发布 TF `target_object`。
 - **任意颜色可扩展**:预置红、橙、黄、绿、蓝、紫;特殊颜色在画面上点选即可加入,无需改代码。
 - **同色多物体**:默认选择离左臂末端最近的一个。
-- **复用现有运控**:调用 `agi@g2_robot` 的积分笛卡尔规划,构型连续、带整机自碰撞检查。
+- **直线优先,绕障兜底**:积分笛卡尔直线规划,失败时自动改用 `via_then_rrt` 绕障规划;全程构型连续,带整机自碰撞检查。
+- **依赖少**:运控、绕障、相机代码都在本仓库内,运行时只需要 `hardware.launch.py`(JTC + MoveIt)。
 - **可追溯**:每条指令的模型回复、工具调用和结果都写入 `traces/`。
 
 <p align="center">
@@ -39,7 +40,7 @@ flowchart LR
     L --> G[Gateway<br/>坐标计算 · 安全检查 · 人工确认]
     G --> R[ROS Backend]
     R --> V[头部 RGBD<br/>颜色定位]
-    R --> A[ArmMotion<br/>规划 · 自碰撞 · JTC]
+    R --> A[ArmMotion<br/>直线 / via_then_rrt 绕障 · 自碰撞 · JTC]
     A --> G2[AgiBot G2]
 ```
 
@@ -49,7 +50,7 @@ flowchart LR
 |---|---|---|
 | `locate_object(color)` | 按颜色定位物体 | 否 |
 | `get_left_end_pose()` | 读取 `arm_l_end_link` 位置 | 否 |
-| `approach_object(standoff_cm)` | 左臂末端直线移到物体正上方 | 是 |
+| `approach_object(standoff_cm)` | 左臂末端移到物体正上方 | 是 |
 
 `approach_object` 没有坐标参数,目标点由 Gateway 根据最近一次定位结果计算。
 
@@ -65,7 +66,7 @@ flowchart LR
 | 只规划模式 | `--plan-only` 完整走一遍流程,绝不发送运动 |
 | 悬停距离 | 末端停在物体上方 18~40cm,默认 25cm,工具不会接触物体 |
 | 范围限制 | 工作空间、单次移动距离、末端速度均有上限 |
-| 防穿桌 | 末端起点必须比物体高 13cm 以上 |
+| 防穿桌 | 整条规划路径上,末端都必须比物体高 13cm 以上 |
 | 定位时效 | 定位结果 30s 后作废,定位失败会清除旧目标 |
 | 次数限制 | 每条指令最多运动一次 |
 
@@ -81,13 +82,15 @@ robot_harness/
 │   ├── gateway.py         模型与机器人之间的关卡:坐标计算与安全检查
 │   ├── colors.py          颜色表读写、由采样像素计算 HSV 范围
 │   ├── tools/             给模型看的工具定义
-│   └── backends/          执行层
-│       ├── ros.py         真机:相机、TF、ArmMotion
-│       ├── fake.py        假机器人,用于测试
-│       └── color_object.py  HSV 分割与多帧融合
-├── configs/               模型、运动、视觉参数与颜色表
-├── scripts/               入口:run_task.py 运行指令,hsv_pick.py 点选取色
-├── tests/                 离线测试,不需要模型和 ROS
+│   ├── backends/          执行层
+│   │   ├── ros.py         真机:相机、TF、运控
+│   │   ├── fake.py        假机器人,用于测试
+│   │   └── color_object.py  HSV 分割与多帧融合
+│   ├── motion/            运控与绕障规划(ArmMotion、via_then_rrt、全身位姿)
+│   └── perception/        头部 RGBD:取帧、深度转 3D、标定
+├── configs/               模型、运动、视觉参数,颜色表,录好的全身位姿
+├── scripts/               入口:run_task.py 运行指令,goto_pose.py 全身位姿,hsv_pick.py 点选取色
+├── tests/                 离线测试:harness 逻辑(不需要 ROS)、运控与绕障(需要 ROS)
 ├── traces/                运行记录与最近一次识别画面
 ├── scenarios/             模型评测用例(规划中)
 ├── fixtures/              真机录制的测试数据(规划中)
@@ -104,7 +107,9 @@ robot_harness/
 ## 环境
 
 - Ubuntu 22.04 · ROS 2 Humble · Python 3.10
-- 已编译的 `agi@g2_robot` 工作空间(MoveIt 配置、`genie_robot_agibot_g2_motion`、`task_board_pose`)
+- ROS 包:`rclpy`、`tf2_ros`、`urdf_parser_py`、`python3-pykdl`,以及 `moveit_msgs`、`control_msgs` 等消息
+- Python 包:`numpy`、`scipy`、`opencv-python`、`PyYAML`
+- 运行时只需要一个外部进程:`agi@g2_robot` 的 `hardware.launch.py`(ros2_control + JTC + MoveIt `move_group`),以及机器人 GDK 发布的头部相机话题
 - DeepSeek API key,填写在项目根目录的 `.env`
 
 启动与使用命令见 [`run.txt`](run.txt),开发过程见 [`devlog.md`](devlog.md),代码导读见 [`docs/harness_guide.md`](docs/harness_guide.md)。
@@ -115,3 +120,4 @@ robot_harness/
 - 没有环境避障,桌面等障碍物不在碰撞检查中。
 - 颜色定位依赖光照;同色物体距离手臂相近时会拒绝执行。
 - 可达范围受腰部姿态影响,目标过远时规划会失败。
+- `harness/motion/` 与 `harness/perception/` 是 `agi@g2_robot` 的副本,原项目更新后需要手动同步。

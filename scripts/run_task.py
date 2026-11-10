@@ -42,6 +42,7 @@ def ask_user(prompt):
 
 def run_one(task, llm, backend, cfg, args):
     colors = load_colors(ROOT / "configs/colors.yaml")      # 每条指令重读,取色后不用重启
+    # 
     gateway = Gateway(backend, cfg["motion"], colors, confirm=ask_user if args.real else None,
                       plan_only=args.plan_only)
     trace_path = ROOT / "traces" / f"{time.strftime('%Y%m%d_%H%M%S')}.jsonl"

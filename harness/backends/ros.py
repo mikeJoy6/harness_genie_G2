@@ -1,6 +1,6 @@
-"""真机器人:复用 agi@g2_robot 的 ArmMotion(规划、执行)和头部 RGBD 工具。
+"""真机器人:手臂运控(harness/motion/)+ 头部 RGBD(harness/perception/),都是本项目里的代码。
 
-运行前要 source ~/agi@g2_robot/env_g2.sh,并且 hardware.launch.py 已经在跑。
+运行前要 source ~/agi@g2_robot/env_g2.sh(GDK 的 DDS 配置),并且 hardware.launch.py 已经在跑。
 """
 import threading
 import time
@@ -13,12 +13,11 @@ from geometry_msgs.msg import TransformStamped
 from rclpy.executors import MultiThreadedExecutor
 from tf2_ros import TransformBroadcaster
 
-from genie_robot_agibot_g2_motion.arm_motion import CART_SPEED, ArmMotion
-from task_board_pose.common.sensor_node import SensorNode
-from task_board_pose.vision.calib import CALIB
-from task_board_pose.vision.rgbd_source import RosSource
-from task_board_pose.vision.scene3d import Rgbd
-
+from ..motion.arm_motion import CART_SPEED, ArmMotion
+from ..perception.calib import CALIB
+from ..perception.rgbd_source import RosSource
+from ..perception.scene3d import Rgbd
+from ..perception.sensor_node import SensorNode
 from .color_object import find_objects, merge_frames
 
 ARM = "left"
@@ -145,11 +144,22 @@ class RosBackend:
         return self.arm.pose(ARM)[0].tolist()
 
     def plan_left_to(self, target):
-        plan = self.arm.plan_cartesian(ARM, np.array(target, dtype=float))    # 姿态保持不变
+        """先试直线;直线不行再用 via_then_rrt 绕障。姿态都保持不变。"""
+        target = np.array(target, dtype=float)
+        plan = self.arm.plan_cartesian(ARM, target)
         if isinstance(plan, str):
-            return {"ok": False, "error": plan}
+            detour = self.arm.plan_detour(ARM, target)
+            if isinstance(detour, str):
+                return {"ok": False, "error": f"直线:{plan};绕障:{detour}"}
+            plan = detour
         slow_down(plan, self.speed)
-        return {"ok": True, "plan": plan, "summary": plan.summary()}
+        return {"ok": True, "plan": plan, "summary": plan.summary(), "lowest_z_m": self._lowest_z(plan.path)}
+
+    def _lowest_z(self, path):
+        """整条路径上 arm_l_end_link 的最低高度(base_link),用于防止路径穿过桌面。"""
+        p_root, R_root = self.arm._root_in_base()
+        kin = self.arm.kins[ARM]
+        return min(float((p_root + R_root @ kin.fk(np.asarray(q))[0])[2]) for q in path)
 
     def execute(self, plan):
         ok, msg = self.arm.execute(plan["plan"])
