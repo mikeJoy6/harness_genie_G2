@@ -1,0 +1,33 @@
+llm:
+  base_url: https://api.deepseek.com
+  model: deepseek-flash
+  api_key_env: DEEPSEEK_API_KEY
+  thinking: disabled        # enabled 更慢,但模型会先推理
+  timeout_s: 90
+
+agent:
+  max_steps: 8              # 一条指令最多问模型几轮
+
+motion:
+  speed_m_s: 0.05           # 末端速度
+  standoff_default_m: 0.25  # arm_l_end_link 停在积木正上方多高
+  standoff_min_m: 0.18      # 必须大于末端工具长度 0.128m
+  standoff_max_m: 0.40
+  max_travel_m: 0.70        # 一次最多移动多远
+  detection_max_age_s: 30   # 积木识别结果多久后作废
+  min_start_above_block_m: 0.13  # 起点要比积木高这么多,防止直线穿过桌面
+  max_moves_per_command: 1  # 一条指令最多动几次
+  workspace:                # 目标点必须在此范围内(base_link,米)
+    x: [0.20, 0.85]
+    y: [-0.20, 0.75]
+    z: [0.30, 1.30]
+
+vision:
+  frames: 5                 # 取几帧求中位数
+  min_good_frames: 3        # 至少几帧恰好看到一个积木
+  max_spread_m: 0.02        # 各帧结果的最大偏差
+  timeout_s: 4.0
+  min_pixels: 30
+  min_valid_depth_pixels: 15
+  min_size_m: 0.015         # 物体可见宽度范围,排除噪点和大物体
+  max_size_m: 0.25

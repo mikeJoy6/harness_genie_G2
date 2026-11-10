@@ -1,0 +1,54 @@
+# Ignore colcon-generated build directories
+build/
+install/
+log/
+run_logs/
+recordings/
+reference/
+
+# Ignore Python caches
+__pycache__/
+*.pyc
+
+# Ignore OS temp files
+.DS_Store
+.vscode/  # if you don't want to share your VSCode config
+
+# ── Large packaging artifacts, never commit (dabao.zip 273MB once slipped into history and hung push) ──
+*.zip
+*.tar.gz
+# Exception: small patch bundles for colleagues are committed on purpose (a few hundred KB)
+!update/*.tar.gz
+
+# ── Model weights: re-downloadable artifacts, never commit (hit on 2026-08-04: 163MB hung push) ──
+#   FastSAM-x.pt 138M + FastSAM-s.pt 23M. Download links: see DEVLOG "SAM":
+#     curl -fL -o models/FastSAM-x.pt \
+#       https://github.com/ultralytics/assets/releases/download/v8.3.0/FastSAM-x.pt
+*.pt
+*.pth
+*.onnx
+*.engine
+# Exception: mediapipe's small models ship with the project (a few MB), keep them
+!src/genie_task_pointing/models/*.task
+
+# ── docker build context: build.sh reassembles it with cp -al on every build, never commit ──
+#   (hit on 2026-08-06: commit 9320bba stuffed in 14122 files / ~700MB,
+#     all a2d_sdk binaries + opencv .so; push hung outright.
+#     It is a [temporary artifact], generated via hard links, rebuildable in seconds, no value in version control.)
+docker/.ctx/
+
+# ── G2 GDK (glog) runtime logs: connecting to the GDK drops these into the current directory, never commit ──
+#   e.g. mode_switch.INFO -> mode_switch.log.INFO.20261102-001727.79544.0, python3.10.INFO
+*.INFO
+*.WARNING
+*.ERROR
+*.FATAL
+*.log.INFO.*
+*.log.WARNING.*
+*.log.ERROR.*
+*.log.FATAL.*
+
+# harness
+.env
+traces/*.jsonl
+traces/last_*.jpg

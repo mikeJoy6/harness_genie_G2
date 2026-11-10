@@ -1,0 +1,79 @@
+# robot_harness 常用命令
+# key 写在 ~/robot_harness/.env:DEEPSEEK_API_KEY=sk-...(不要在终端 export 中文占位符)
+
+
+
+# ── 真机启动 ──────────────────────────────────────────
+
+# 终端 1:JTC + MoveIt,不加载点云
+source ~/agi@g2_robot/env_g2.sh
+ros2 launch genie_robot_agibot_g2_hardware hardware.launch.py end_effector:=true use_head_cloud:=false
+
+# 终端 2:处理器
+source ~/.cache/agibot/app/env.sh
+source ~/agi@g2_robot/env_g2.sh
+ros2 run task_board_pose processor
+
+# 终端 3:移到 look 位姿(全身会动,先挪开桌子)
+source ~/agi@g2_robot/env_g2.sh
+ros2 run task_board_pose request goto_pose look speed=0.2
+ros2 run task_board_pose request goto_pose look groups=head speed=0.2     # 只动头
+
+
+
+# ── 抬高左臂(末端要比物体高 13cm 以上)──────────────────
+
+source ~/agi@g2_robot/env_g2.sh
+ros2 run genie_robot_agibot_g2_motion motion_cli
+#   [left]> pose
+#   [left]> move 0 0 0.20        打印规划后输入 y 才动
+#   [left]> quit
+
+
+
+# ── 运行 harness ──────────────────────────────────────
+
+source ~/agi@g2_robot/env_g2.sh
+cd ~/robot_harness
+
+# 只规划,机器人不动
+python3 scripts/run_task.py --real --plan-only "左手抵达红色积木上空"
+
+# 真机执行,每次运动前输入 y 确认
+python3 scripts/run_task.py --real "左手抵达红色积木上空"
+python3 scripts/run_task.py --real "左手抵达绿色青椒上空"
+
+# 交互模式:一行一条指令,q 退出
+python3 scripts/run_task.py --real
+
+# 假机器人(不需要 ROS,需要 key)
+python3 scripts/run_task.py "左手抵达红色积木上空"
+
+
+
+# ── 新增颜色 ─────────────────────────────────────────
+
+# 实时头部画面:左键点物体(亮面暗面都点),c 清空,s 保存,q 不保存
+source ~/agi@g2_robot/env_g2.sh
+python3 scripts/hsv_pick.py --name 紫色杯子
+
+# 用图片取色 / 不开窗口直接采样一个像素
+python3 scripts/hsv_pick.py --name 紫色杯子 --image traces/last_object.jpg
+python3 scripts/hsv_pick.py --name 紫色杯子 --image traces/last_object.jpg --pixel 320,200
+
+
+
+# ── 查看结果 ─────────────────────────────────────────
+
+# 最近一次识别画面:绿框 = 选中的目标,黄框 = 所有同色候选
+xdg-open traces/last_object.jpg
+
+# 最近一次运行记录
+python3 -c "import json,glob; [print(json.loads(l)['kind'], json.dumps(json.loads(l)['data'], ensure_ascii=False)[:200]) for l in open(sorted(glob.glob('traces/*.jsonl'))[-1], encoding='utf-8')]"
+
+
+
+# ── 测试 ─────────────────────────────────────────────
+
+cd ~/robot_harness
+python3 -m pytest tests -q
