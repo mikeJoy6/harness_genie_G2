@@ -3,7 +3,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]   # learning/stage1_llm/xxx.py → 项目根目录
 API_URL = "https://api.deepseek.com/chat/completions"
 MODEL = "deepseek-flash"
 
@@ -16,10 +16,12 @@ def read_key(env_path, name="DEEPSEEK_API_KEY"):
     raise RuntimeError(f"{env_path} 里没有 {name}=")
 
 
-def chat(key, messages):
+def chat(key, messages,tools=None):
     """把对话发给 DeepSeek,返回模型的那条回复(一个 dict,含 role 和 content)。"""
     # 请求体:一个普通的 Python dict,字段含义见 DeepSeek 文档的 Chat Completions 接口
     body = {"model": MODEL, "messages": messages, "thinking": {"type": "disabled"}}
+    if tools:
+        body["tools"] = tools
     request = urllib.request.Request(
         API_URL,
         data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
