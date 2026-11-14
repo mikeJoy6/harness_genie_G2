@@ -423,6 +423,23 @@ class ArmMotion(Node):
                     return False
         return not escaping
 
+    def octomap_base(self):
+        """MoveIt 当前 octomap 的占据格中心(base_link,米)。robot_harness 加,给 touch_object 最后一段的
+        几何检查用(harness/touch_keep_out.py)。取不到、或 octomap 不在 base_link 系时返回空数组。"""
+        if not self._scene_cli.service_is_ready():
+            return np.empty((0, 3))
+        req = GetPlanningScene.Request()
+        req.components.components = PlanningSceneComponents.OCTOMAP
+        res = self._wait_future(self._scene_cli.call_async(req), 3.0)
+        if res is None:
+            return np.empty((0, 3))
+        om = res.scene.world.octomap
+        if om.header.frame_id != "base_link":
+            if om.header.frame_id:
+                self.get_logger().warn(f"octomap 在 {om.header.frame_id} 系,不是 base_link,touch 最后一段不做点云几何检查")
+            return np.empty((0, 3))
+        return occupied_centers(om.octomap)
+
     def obstacles_root(self, arm):
         """末端粗筛用的障碍点，换到手臂链根系(arm_base_link)：MoveIt 当前 octomap 的占据体素中心 + planning scene 里
         碰撞体(add_collision_mesh.py 加的虚拟障碍等)的表面采样点。取不到返回空数组。

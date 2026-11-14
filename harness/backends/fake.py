@@ -113,7 +113,7 @@ class FakeBackend:
                 "lowest_z_m": min(start[2], target[2])}   # 直线路径的最低点在两端之一
 
     def plan_touch(self, arm, object_xyz, gap_m, direction, allow_body=True):
-        """和 RosBackend.plan_touch 一样的返回格式:先到接触点前 5cm,再不查点云直线到接触点。"""
+        """和 RosBackend.plan_touch 一样的返回格式:先到接触点前 5cm,再慢速直线到接触点。"""
         self.last_touch = {"arm": arm, "object_xyz": list(object_xyz), "gap_m": gap_m, "direction": list(direction)}
         if self.plan_error:
             return {"ok": False, "error": self.plan_error}
@@ -121,7 +121,7 @@ class FakeBackend:
         pre = [c - 0.05 * d for c, d in zip(contact, direction)]
         return {"ok": True, "kind": "touch", "arm": arm, "contact_xyz_m": contact, "precontact_xyz_m": pre,
                 "unchecked_m": 0.05, "approach": "末端→物体", "rpy_deg": list(self.ends[arm]["rpy_deg"]),
-                "summary": "假规划:先到接触点前 5cm,再不查点云直线 5cm"}
+                "summary": "假规划:先到接触点前 5cm,再慢速直线 5cm"}
 
     def plan_joints(self, target, speed):
         if self.plan_error:

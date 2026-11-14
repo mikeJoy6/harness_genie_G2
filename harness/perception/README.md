@@ -16,6 +16,7 @@
 | `sensor_node.py` | 用时才订阅、用完就退订的传感器节点,避免一直接收大流量图像 |
 | `sam3_objects.py` | SAM 3 掩码 + 深度 → base_link 物体(按距离编号);分割日志存到 `traces/sam3/` |
 | `head_aim.py` | `HeadAim`:算头部 yaw、pitch 让相机对准一个点(URDF 正运动学 + 外参) |
+| `wrist_camera.py` | 腕部相机取一帧(彩色 + 可选深度),见 [docs/wrist_camera.md](../../docs/wrist_camera.md) |
 | `sam3_client.py` | SAM 3 服务的客户端(本仓库自己写的,不是复制来的),见 [docs/sam3_service.md](../../docs/sam3_service.md) |
 
 ## 和哪里联动

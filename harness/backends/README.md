@@ -9,6 +9,7 @@ Gateway 决定“能不能做”,这里负责“具体怎么做”。假机器�
 | 文件 | 作用 | 依赖 ROS |
 |---|---|---|
 | `gripper_gdk.py` | 夹爪开合(GDK) | 是 |
+| `wrench_gdk.py` | 末端六维力(GDK `/gdk/motion_control_status`),touch 最后一段碰到就停 | 是 |
 | `fake.py` | 假机器人,用于测试 | 否 |
 | `ros.py` | 真机器人 | 是 |
 
@@ -34,7 +35,7 @@ end_pose(arm)                         # {"xyz_m": [x, y, z], "rpy_deg": [r, p, y
 joint_state()                         # {关节名: 弧度}
 joint_limits()                        # {关节名: (下限, 上限)}
 plan_arm_to(arm, target, ...)         # 只规划,全程查碰撞:{"ok": True, "kind": "arm" / "body_then", "summary", "lowest_z_m"}
-plan_touch(arm, object_xyz, gap_m, direction)   # 只规划 touch_object(唯一不查点云的):{"kind": "touch", ...}
+plan_touch(arm, object_xyz, gap_m, direction)   # 只规划 touch_object(唯一能碰物体的:最后一段只放过物体附近的点云):{"kind": "touch", ...}
 plan_joints(target, speed)            # 只规划:{"ok": True, "kind": "joints", "summary": ...}
 execute(plan)                         # 按 plan["kind"] 执行:{"ok": True, "msg": "..."}
 close()

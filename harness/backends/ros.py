@@ -7,6 +7,7 @@
 
 运行前要 source ~/agi@g2_robot/env_g2.sh(GDK 的 DDS 配置),并且 hardware.launch.py 已经在跑。
 """
+import math
 import threading
 import time
 from pathlib import Path
@@ -28,7 +29,10 @@ from ..perception.sam3_client import Sam3Client
 from ..perception.sam3_objects import objects_from_masks, public, save_segmentation
 from ..perception.scene3d import Rgbd
 from ..perception.sensor_node import SensorNode
+from ..perception.wrist_camera import WristCamera
+from ..touch_keep_out import gripper_hits, outside_object, rests_on_surface
 from .gripper_gdk import GdkGripper
+from .wrench_gdk import GdkWrench, force_change_n
 
 
 def _angle_deg(a, b):
@@ -92,6 +96,12 @@ class RosBackend:
         self.body = WholeBody(self.node)        # 订阅 /joint_states,连 4 个 JTC 和 /check_state_validity
         self.camera = SensorNode("robot_harness_camera")
         self.gripper = GdkGripper(self.node, gripper_cfg) if gripper_cfg else None   # 第一次用时才连 GDK
+        self.wrist = None                    # 腕部相机(用时才订),harness.yaml vision.wrist
+        if vision_cfg.get("wrist"):
+            self.wrist = WristCamera(SensorNode("robot_harness_wrist"), vision_cfg["wrist"])
+        self.wrench = None                   # touch 最后一段的六维力(用时才订 /gdk/motion_control_status)
+        if touch_cfg and touch_cfg.get("force", {}).get("enabled"):
+            self.wrench = GdkWrench(SensorNode("robot_harness_wrench"))
 
         self.executor = MultiThreadedExecutor(num_threads=4)
         self.executor.add_node(self.node)
@@ -205,6 +215,13 @@ class RosBackend:
         path = folder / f"{time.strftime('%Y%m%d_%H%M%S')}_{camera}.jpg"
         path.write_bytes(data)
         return {"ok": True, "path": str(path), "camera": camera, "width": image.shape[1], "height": image.shape[0]}
+
+    def wrist_frame(self, arm):
+        """腕部相机取一帧:{"ok", "bgr", "depth_m"(没有深度时 None)}。还没有工具调用它,对准检查做好后再接
+        (设计见 docs/wrist_camera.md);现在可以用 take_photo(camera="hand_right") 存一张看。"""
+        if self.wrist is None:
+            return {"ok": False, "error": "没有配置腕部相机(harness.yaml vision.wrist)"}
+        return self.wrist.grab(arm)
 
     # ---------------- 夹爪 ----------------
     def gripper_state(self, arm):
@@ -386,74 +403,169 @@ class RosBackend:
           预接触点 P = C − b·d,b 从近到远(touch.backoffs_cm)
           ⓪ 先在接触点 C 定夹爪姿态和关节角(_touch_contact_pose:朝 d,严格不行就容差内最接近;只要求不自碰撞)
           ① 对每个 P 离线验(便宜):从 C 的关节角沿直线反着走到 P —— P、C 在同一个构型分支,P → C 直线一定走得通;
-             P 处不撞(含点云),整段除了点云不撞(自碰撞照查)
+             P 处不撞(含点云);整段 MoveIt 只放过点云,自碰撞照查;
+             点云再用几何查一遍(_keep_out_ok):只有物体附近的格可以碰
           ② 验过的 P 才规划第一段(全程查碰撞):直线 → 末端绕障 via_then_rrt → 关节空间直接去 P 的关节角
              (经录好位姿中转 / RRT)。终点构型已经验证过不撞,只要连得通,关节空间就找得到 ——“能去就一定规划得出来”
-          ③ 执行时到了 P,再从实际位姿不查点云、慢速直线到 C(_execute_touch)
-        接近方向依次试:末端 → 物体(direction)、肩 → 物体水平、从上往下。
-        哪个 P 都没有 IK 解(手臂够不着):allow_body 时先动腰,到位后整个重来。"""
+          ③ 执行时到了 P,再从实际位姿慢速直线到 C(_execute_touch),执行前用最新点云再查一次 ①的几何检查
+        接近方向依次试:末端 → 物体(direction)、肩 → 物体水平(物体放在台面上时不用)、从上往下。
+        某个方向连接触点都够不着时,先动腰再试**这个方向**(allow_body),不直接换方向
+        —— 2026-11-14 真机:朝下够不着就换成水平平推,贴着桌面撞上去了。"""
         cfg = self.touch
         obj = np.asarray(object_xyz, dtype=float)
         start = np.array(self.end_pose(arm)["xyz_m"])
         d0 = np.asarray(direction, dtype=float) / np.linalg.norm(direction)
         contact0 = obj - gap_m * d0
         near = float(np.linalg.norm(contact0 - start))
-        if near <= cfg["backoffs_cm"][0] / 100:      # 已经在跟前:只走最后一段
+        if near <= cfg["backoffs_cm"][0] / 100:      # 已经在跟前:只走最后一段(执行前照样做几何检查)
             return {"ok": True, "kind": "touch", "arm": arm, "first": None, "contact_xyz_m": contact0.tolist(),
-                    "precontact_xyz_m": start.tolist(), "unchecked_m": round(near, 3), "approach": "末端→物体",
-                    "summary": f"已经在接触点 {near * 100:.0f}cm 内,直接不查点云直线过去"}
+                    "object_xyz_m": obj.tolist(), "precontact_xyz_m": start.tolist(), "unchecked_m": round(near, 3),
+                    "approach": "末端→物体", "direction_notes": [], "direction": d0.tolist(), "gap_m": gap_m,
+                    "summary": f"已经在接触点 {near * 100:.0f}cm 内,直接慢速直线过去"}
 
-        counts = {"contact": 0, "ik": 0, "collide": 0, "last": 0}
+        cloud = self.arm.octomap_base()
+        blocked = outside_object(cloud, obj, cfg["keep_out"]["object_radius_m"])
+        # 要碰上(gap 0)且有六维力时,执行会越过接触点再走 overshoot_m、碰到才停(_execute_touch)。
+        #   所以姿态、关节角、动腰都按最深那一点定,不然手臂在接触点就快伸直了,压不下去(离线踩过:只剩 1.5cm)
+        depth = 0.0
+        if gap_m == 0 and self.wrench is not None:
+            depth = cfg["force"]["overshoot_m"]
+        notes = []                                    # 每个没用上的方向为什么没用上,写进结果
         failures = []
         tried = 0
-        for name, d in self._touch_directions(arm, obj, d0):
+        for name, d in self._touch_directions(arm, obj, d0, cloud, notes):
             contact = obj - gap_m * d
-            rolls = []                                    # [(roll, 接触点姿态 + 关节角)],够不着接触点的 roll 不要
+            deepest = contact + depth * d                  # 最后一段最远可能走到哪
+            rolls = []                                    # [(roll, 最深点姿态 + 关节角)],够不着的 roll 不要
             for roll in cfg["roll_offsets_deg"]:
-                contact_pose = self._touch_contact_pose(arm, contact, d, roll)
-                if contact_pose is None:
-                    counts["contact"] += 1
-                else:
+                contact_pose = self._touch_contact_pose(arm, deepest, d, roll)
+                if contact_pose is not None:
                     rolls.append((roll, contact_pose))
+            if not rolls:
+                where = "接触点" if depth == 0 else f"接触点再往前 {depth * 100:.0f}cm(碰到才停,要留出余量)"
+                why = f"{name}:{where}够不着(朝向差超过 {self.tool_axis_tolerance_deg:.0f}°)"
+                if allow_body and self.body_assist and self.body_assist.get("enabled"):
+                    after = {"kind": "touch", "args": {"arm": arm, "object_xyz": obj.tolist(), "gap_m": gap_m,
+                                                       "direction": d.tolist()}}
+                    body = self._body_assist(arm, deepest, d.tolist(), 0.0, failures, after)
+                    if body is not None:
+                        body["summary"] = f"{why},{body['summary']}"
+                        body["direction_notes"] = notes + [why + ",先动腰"]
+                        return body
+                    why += ",动腰也够不着"
+                notes.append(why)
+                continue
+            counts = {"ik": 0, "collide": 0, "last": 0, "keep_out": 0}
             for b_cm in cfg["backoffs_cm"]:
                 pre = contact - b_cm / 100 * d
                 for roll, contact_pose in rolls:
-                    cand = self._touch_candidate(arm, pre, contact_pose)
+                    cand = self._touch_candidate(arm, pre, contact_pose, blocked, contact, d)
                     if isinstance(cand, str):
                         counts[cand] += 1
                         continue
                     tried += 1
-                    first, why = self._reach_precontact(arm, pre, cand, contact)
+                    first, why = self._reach_precontact(arm, pre, cand, deepest, blocked, contact, d)
+                    if first is not None and first.get("shallow") and allow_body and self.body_assist \
+                            and self.body_assist.get("enabled"):
+                        # 够得着接触点,但压不到“接触点 + overshoot”(碰不到桌面):先试多前倾,不行再接受浅的
+                        after = {"kind": "touch", "args": {"arm": arm, "object_xyz": obj.tolist(), "gap_m": gap_m,
+                                                           "direction": d.tolist()}}
+                        body = self._body_assist_lean_more(arm, deepest, d, cand["R"], failures, after)
+                        if body is not None:
+                            body["summary"] = f"{name}:现在的姿态越过接触点压不到 {depth * 100:.0f}cm,{body['summary']}"
+                            body["direction_notes"] = notes
+                            return body
                     if first is not None:
+                        if first.get("shallow"):
+                            notes.append(f"{name}:这个姿态越过接触点压不到 {depth * 100:.0f}cm,执行时能压多深压多深")
                         return {"ok": True, "kind": "touch", "arm": arm, "first": first,
-                                "contact_xyz_m": contact.tolist(), "precontact_xyz_m": pre.tolist(),
+                                "contact_xyz_m": contact.tolist(), "object_xyz_m": obj.tolist(),
+                                "precontact_xyz_m": pre.tolist(),
                                 "unchecked_m": b_cm / 100, "approach": name, "roll_offset_deg": roll,
+                                "direction": d.tolist(), "gap_m": gap_m,
+                                "direction_notes": notes,
                                 "summary": f"接近方向 {name};① 查碰撞到接触点前 {b_cm}cm:{first['summary']};"
-                                           f"② 不查点云直线 {b_cm}cm 到接触点({cfg['final_speed_m_s']} m/s)"}
+                                           f"② 只放过物体附近的点云,直线 {b_cm}cm 到接触点({cfg['final_speed_m_s']} m/s)"}
                     failures.append(f"{name} {b_cm}cm:第一段规划不过去({why})")
-                    if tried >= cfg["max_plan_tries"]:
-                        return {"ok": False, "error": " | ".join(failures) + f" | 已试 {tried} 个预接触点,停止"}
                     break                    # 这个 b 规划不通,换下一个 b(别的 roll 多半一样)
-        why = (f"接触点按要求的朝向够不着 {counts['contact']} 次;预接触点 {counts['ik']} 个 IK 无解、"
-               f"{counts['collide']} 个 IK 解都会撞、{counts['last']} 个最后一段走不通或会自碰撞")
-        failures.append(why)
-        if tried == 0 and counts["collide"] == 0 and counts["last"] == 0 and allow_body \
-                and self.body_assist and self.body_assist.get("enabled"):
-            pre = contact0 - cfg["backoffs_cm"][0] / 100 * d0
-            after = {"kind": "touch", "args": {"arm": arm, "object_xyz": obj.tolist(), "gap_m": gap_m,
-                                               "direction": d0.tolist()}}
-            body = self._body_assist(arm, pre, d0.tolist(), 0.0, failures, after)
-            if body is not None:
-                return body
-        return {"ok": False, "error": " | ".join(failures)}
+                if tried >= cfg["max_plan_tries"]:
+                    failures.append(f"已试 {tried} 个预接触点,停止")
+                    break
+            notes.append(f"{name}:预接触点 {counts['ik']} 个 IK 无解、{counts['collide']} 个会撞、"
+                         f"{counts['last']} 个最后一段走不通或自碰撞、{counts['keep_out']} 个最后一段会碰到物体以外的点云")
+            swing = [f for f in failures if f.startswith(name) and "不走" in f]
+            if swing and allow_body and self.body_assist and self.body_assist.get("enabled"):
+                # 现在的手臂构型够不着、换构型又要大幅甩臂:先动腰,让现在这个构型够得着
+                after = {"kind": "touch", "args": {"arm": arm, "object_xyz": obj.tolist(), "gap_m": gap_m,
+                                                   "direction": d.tolist()}}
+                R_goal = roll_locked(self.arm.pose(arm)[1], d, 0.0)
+                body = self._body_assist_lean_more(arm, deepest, d, R_goal, failures, after)
+                if body is not None:
+                    body["summary"] = f"{name}:手臂要大幅换构型才够得着,{body['summary']}"
+                    body["direction_notes"] = notes
+                    return body
+            if tried >= cfg["max_plan_tries"]:
+                break
+        return {"ok": False, "error": " | ".join(notes + failures)}
 
-    def _touch_directions(self, arm, obj, direction):
-        """接近方向候选(单位向量,从手指向物体),彼此差 15° 以上才算不同。"""
+    def _body_assist_lean_more(self, arm, target, d, R_goal, failures, after):
+        """现在的手臂构型“够是够得着,但要换构型 / 压不够深”时,多前倾一点让**现在这个构型**够得着 target。
+        body_assist_search 只看 IK 有没有解(哪个构型都算),前倾后可能还是要换构型,所以这里自己验:
+        腰换成候选姿态、手臂关节不动,从现在的关节角沿直线积分到 target(姿态 R_goal,base_link),到得了才算。
+        动腰后整个 plan_touch 重来(不再动腰)。失败返回 None。"""
+        cfg = self.body_assist
+        names = self.arm.bkin.joint_names
+        joints = self.joint_state()
+        q_body = np.array([joints[n] for n in names])
+        limits = self.joint_limits()
+        solver = self.arm.solvers[arm]
+        q_arm = np.asarray(self.arm.q_arm(arm), dtype=float)
+        found = None
+        for lean in (5, 10, 15, 20):
+            if lean > cfg["max_lean_deg"] or found is not None:
+                continue
+            for turn in (0, 10, -10):
+                if abs(turn) > cfg["max_turn_deg"] or found is not None:
+                    continue
+                q = q_body.copy()
+                q[2] += math.radians(lean)
+                q[4] += math.radians(turn)
+                inside = True
+                for n, v in zip(names, q):
+                    if not limits[n][0] + 0.02 <= v <= limits[n][1] - 0.02:
+                        inside = False
+                if not inside:
+                    continue
+                pb, Rb = self.arm.bkin.fk(q)
+                R_root = Rb.T @ R_goal
+                _, reached, _, _, _ = solver.solve(q_arm, Rb.T @ (np.asarray(target) - pb), "full",
+                                                   R_root, R_root[:, 0])
+                if reached:
+                    found = (q, lean, turn)
+        if found is None:
+            failures.append("多前倾(现在的手臂构型)也够不着")
+            return None
+        q, lean, turn = found
+        body_plan = self.plan_joints({n: float(v) for n, v in zip(names, q)}, cfg["speed_rad_s"])
+        if not body_plan["ok"]:
+            failures.append(f"多前倾 {lean}° 的腰运动规划不过去:{body_plan['error']}")
+            return None
+        return {"ok": True, "kind": "body_then", "arm": arm, "body": body_plan, "after": after,
+                "lean_deg": lean, "turn_deg": turn,
+                "summary": f"先上身再前倾 {lean}°、转腰 {turn}°({body_plan['summary']}),再从新姿态规划手臂",
+                "lowest_z_m": float(target[2])}
+
+    def _touch_directions(self, arm, obj, direction, cloud, notes):
+        """接近方向候选(单位向量,从手指向物体),彼此差 15° 以上才算不同。
+        物体放在台面上(rests_on_surface)时不用“肩 → 物体水平”:那是贴着台面平推。"""
         cands = [("末端→物体", direction)]
         horizontal = obj - np.array(self.shoulder_xyz(arm))
         horizontal[2] = 0.0
         if np.linalg.norm(horizontal) > 1e-6:
-            cands.append(("肩→物体水平", horizontal))
+            if rests_on_surface(cloud, obj):
+                notes.append("肩→物体水平:物体放在台面上,不从侧面贴着台面平推")
+            else:
+                cands.append(("肩→物体水平", horizontal))
         cands.append(("从上往下", np.array([0.0, 0.0, -1.0])))
         result = []
         for name, d in cands:
@@ -461,6 +573,39 @@ class RosBackend:
             if all(_angle_deg(d, e) > 15.0 for _, e in result):
                 result.append((name, d))
         return result
+
+    def _keep_out_ok(self, arm, path, blocked, contact, d):
+        """最后一段(MoveIt 不查点云)的几何检查:夹爪近似成胶囊,沿 path 每个关节角算夹爪位置,
+        碰到 blocked(物体附近以外的点云格)就不行。path 是这条手臂的关节角序列。
+        只查到接触点为止(夹爪尖还没越过“过接触点、垂直于 d 的平面”的那些位姿):
+        越过接触点的那段是靠六维力“碰到就停”的,目标本来就在桌面里 ——
+        2026-11-14 真机:连这段也查,桌面(背面补全成好几层厚)把最后一段全拦了,只好去绕 154° 的关节空间。"""
+        if len(blocked) == 0:
+            return True
+        cfg = self.touch["keep_out"]
+        pb, Rb = self.arm._root_in_base()
+        kin = self.arm.solvers[arm].kin
+        P = np.asarray(path, dtype=float)
+        dense = [P[0]]
+        for q0, q1 in zip(P[:-1], P[1:]):                # 相邻路点之间按 1° 插值,别跳过薄薄一层桌面
+            n = max(1, int(np.ceil(np.max(np.abs(q1 - q0)) / np.radians(1.0))))
+            for s in np.linspace(0.0, 1.0, n + 1)[1:]:
+                dense.append(q0 + s * (q1 - q0))
+        contact = np.asarray(contact, dtype=float)
+        d = np.asarray(d, dtype=float)
+        tips = []
+        axes = []
+        for q in dense:
+            p, R = kin.fk(q)
+            tip = pb + Rb @ p
+            if float((tip - contact) @ d) > 0.005:          # 已经越过接触点:这段归六维力管
+                continue
+            tips.append(tip)
+            axes.append(Rb @ R[:, 2])
+        if not tips:
+            return True
+        hits = gripper_hits(tips, axes, blocked, cfg["gripper_radius_m"], cfg["gripper_length_m"])
+        return hits == 0
 
     def _touch_contact_pose(self, arm, contact, d, roll_deg):
         """接触点处的夹爪姿态和关节角。工具轴朝 d、roll 锁住(+roll_deg);严格做不到时接受离 d
@@ -487,9 +632,10 @@ class RosBackend:
             return None
         return {"R": Rb @ R_root, "q": q_contact}
 
-    def _touch_candidate(self, arm, pre, contact_pose):
+    def _touch_candidate(self, arm, pre, contact_pose, blocked, contact, d):
         """离线验一个预接触点:从接触点的关节角沿直线反着走到 P(同一个构型分支,保证 P → C 直线走得通),
-        P 处不撞(含点云),整段除了点云不撞。返回 {"q", "R"} 或失败种类 "ik" / "collide" / "last"。"""
+        P 处不撞(含点云),整段除了点云不撞,而且夹爪不碰物体附近以外的点云格(blocked)。
+        返回 {"q", "R"} 或失败种类 "ik" / "collide" / "last" / "keep_out"。"""
         pb, Rb = self.arm._root_in_base()
         solver = self.arm.solvers[arm]
         R_root = Rb.T @ contact_pose["R"]
@@ -499,31 +645,47 @@ class RosBackend:
         q_pre = np.asarray(path[-1], dtype=float)
         if not self.arm.valid(arm, q_pre):
             return "collide"
+        if not self._keep_out_ok(arm, path, blocked, contact, d):
+            return "keep_out"
         if not self.arm.path_clear(arm, path[::-1], ignore_cloud=True):
             return "last"
         return {"q": q_pre, "R": contact_pose["R"]}
 
-    def _final_segment_ok(self, arm, q, contact, R):
-        """从关节角 q、保持姿态 R,积分笛卡尔直线能不能到接触点,且除了点云不撞。"""
+    def _final_segment_ok(self, arm, q, target, R, blocked, contact, d):
+        """从关节角 q、保持姿态 R,积分笛卡尔直线能不能到 target(接触点,或越过它的最深点),
+        且除了点云不撞、到接触点为止不碰物体附近以外的点云格。"""
         pb, Rb = self.arm._root_in_base()
         solver = self.arm.solvers[arm]
         R_root = Rb.T @ R
-        path, reached, _, _, _ = solver.solve(np.asarray(q, dtype=float), Rb.T @ (contact - pb), "full",
+        path, reached, _, _, _ = solver.solve(np.asarray(q, dtype=float), Rb.T @ (target - pb), "full",
                                               R_root, R_root[:, 0])
-        return reached and self.arm.path_clear(arm, path, ignore_cloud=True)
+        return reached and self._keep_out_ok(arm, path, blocked, contact, d) \
+            and self.arm.path_clear(arm, path, ignore_cloud=True)
 
-    def _reach_precontact(self, arm, pre, cand, contact):
+    def _reach_precontact(self, arm, pre, cand, target, blocked, contact, d):
         """第一段(全程查碰撞,含点云)到预接触点:直线 → 末端绕障 → 关节空间(经录好位姿中转 / RRT)。
         前两种按末端位姿规划,到了以后的构型分支可能和验过的不一样:要再验一次“从这里直线下得去”,
         不行就改关节空间直接去验过的那个关节角。返回 (计划, None) 或 (None, 原因)。"""
         plan, why = self._line_or_detour(arm, pre, cand["R"])
         if plan is not None:
-            if self._final_segment_ok(arm, plan.path[-1], contact, cand["R"]):
-                return {"ok": True, "kind": "arm", "plan": plan, "summary": plan.summary()}, None
+            # 只要求从这个构型直线到得了接触点;越过接触点能多走多少,执行时按这个构型试(_execute_touch)。
+            #   以前要求到得了最深点(接触点 + 5cm),当前构型差 2cm 就去换构型分支,甩了 154°(2026-11-14 真机)
+            if self._final_segment_ok(arm, plan.path[-1], contact, cand["R"], blocked, contact, d):
+                first = {"ok": True, "kind": "arm", "plan": plan, "summary": plan.summary()}
+                if target is not contact and not self._final_segment_ok(arm, plan.path[-1], target, cand["R"],
+                                                                        blocked, contact, d):
+                    first["shallow"] = True          # 这个构型越过接触点压不到最深点(plan_touch 会先试多前倾)
+                return first, None
             why = "末端规划到得了预接触点,但到的那个构型直线下不去"
+        # 关节空间直接去验过的关节角:换构型分支时手臂会大幅甩动,贴着桌面很危险。
+        #   2026-11-14 真机:末端只要往下 7cm,却走了关节最大变化 154° 的 RRT,执行完 joint3 差 30.8° 没到位
+        change = float(np.degrees(np.max(np.abs(np.asarray(cand["q"]) - self.arm.q_arm(arm)))))
+        limit = self.touch["max_joint_fallback_deg"]
+        if change > limit:
+            return None, f"{why};改关节空间要转 {change:.0f}° > {limit}°,不走"
         names = self.arm.kins[arm].joint_names
-        target = {n: float(v) for n, v in zip(names, cand["q"])}
-        joints = self.plan_joints(target, self.touch["joint_speed_rad_s"])
+        goal = {n: float(v) for n, v in zip(names, cand["q"])}
+        joints = self.plan_joints(goal, self.touch["joint_speed_rad_s"])
         if not joints["ok"]:
             return None, f"{why};关节空间 {joints['error']}"
         joints["summary"] = f"{why},改关节空间:{joints['summary']}"
@@ -622,10 +784,20 @@ class RosBackend:
             done = self.execute(arm_plan)
         except Exception as e:                     # 腰已经动了:报错也要让模型知道这一点
             return {"ok": False, "msg": f"{moved},之后手臂出错:{type(e).__name__}: {e}"}
-        return {"ok": done["ok"], "msg": f"腰:{msg};手臂({arm_plan['summary']}):{done['msg']}"}
+        result = {"ok": done["ok"], "msg": f"腰:{msg};手臂({arm_plan['summary']}):{done['msg']}"}
+        if "contact" in done:
+            result["contact"] = done["contact"]
+        return result
 
     def _execute_touch(self, plan):
-        """先走第一段(查碰撞)到预接触点;到了以后从实际位姿、保持实际姿态,不查点云慢速直线到接触点。"""
+        """先走第一段(查碰撞)到预接触点;到了以后从实际位姿、保持实际姿态,慢速直线到接触点(只放过物体附近的点云)。
+
+        有六维力时(touch.force,2026-11-14 加):
+          · 到预接触点后静止取零点;最后一段边走边看力,比零点变了 threshold_n 以上 = 碰到东西(桌面 / 物体),马上停;
+          · gap 为 0(“碰到”“抓取下探”)时终点再往前 overshoot_m:物体坐标只是可见表面的中位点,
+            真正的“底”以力为准,比如张开的夹爪罩住鼠标往下,碰到桌面才停;
+          · 碰到后沿接近方向往回退 retreat_m(给闭合夹爪留空间),这次 touch 就算完成。
+        收不到力:退回原来的做法(只走到接触点,不多走),结果里写明。"""
         arm = plan["arm"]
         cfg = self.touch
         first_msg = "已在跟前"
@@ -634,19 +806,123 @@ class RosBackend:
             if not done["ok"]:
                 return {"ok": False, "msg": f"第一段(查碰撞,到预接触点)失败:{done['msg']}"}
             first_msg = done["msg"]
-        target = np.array(plan["contact_xyz_m"])
+        contact = np.array(plan["contact_xyz_m"])
+        d = np.asarray(plan["direction"], dtype=float)
         now = np.array(self.end_pose(arm)["xyz_m"])
-        left = float(np.linalg.norm(target - now))
+        left = float(np.linalg.norm(contact - now))
         if left > cfg["backoffs_cm"][-1] / 100 + 0.02:
-            return {"ok": False, "msg": f"到预接触点后离接触点还有 {left:.2f}m,超过不查点云的上限,停下"}
-        last = self.arm.plan_cartesian(arm, target, self.arm.pose(arm)[1], ignore_cloud=True)
-        if isinstance(last, str):
-            return {"ok": False, "msg": f"已到预接触点;最后一段直线算不出来:{last}"}
-        slow_down(last, cfg["final_speed_m_s"])
-        ok, msg = self.arm.execute(last)
+            return {"ok": False, "msg": f"到预接触点后离接触点还有 {left:.2f}m,超过最后一段的上限,停下"}
+
+        force_cfg = cfg["force"]
+        frame = force_cfg["frames"][arm]
+        zero, force_note = self._force_zero(frame)
+        expect_contact = plan["gap_m"] == 0          # gap 0 = 要碰上;gap > 0 = 停在跟前,碰到力只是保护
+        extras = [0.0]                                # 接触点之后再多走多少,从多到少试(手臂快伸直时多走的够不着)
+        if zero is not None and expect_contact:
+            extras = []
+            extra = force_cfg["overshoot_m"]
+            while extra > 0.0:                         # 5、4、3、2、1cm、0:这个构型能多走多少就多走多少
+                extras.append(round(extra, 3))
+                extra -= 0.01
+            extras.append(0.0)
+        try:
+            R_now = self.arm.pose(arm)[1]
+            for extra in extras:
+                last = self.arm.plan_cartesian(arm, contact + extra * d, R_now, ignore_cloud=True)
+                if not isinstance(last, str):
+                    break
+            if isinstance(last, str):
+                return {"ok": False, "msg": f"已到预接触点;最后一段直线算不出来:{last}"}
+            blocked = outside_object(self.arm.octomap_base(), plan["object_xyz_m"],
+                                     cfg["keep_out"]["object_radius_m"])
+            if not self._keep_out_ok(arm, last.path, blocked, contact, d):   # 用最新点云再查一次:规划后桌上多了东西也拦得住
+                return {"ok": False, "msg": "已到预接触点,停下:最后一段夹爪会碰到物体以外的点云(桌面或别的东西)"}
+            slow_down(last, cfg["final_speed_m_s"])
+            if zero is None:
+                ok, msg = self.arm.execute(last)
+                if not ok:
+                    return {"ok": False, "msg": f"已到预接触点;最后一段失败:{msg}"}
+                return {"ok": True, "msg": f"{first_msg};最后 {left * 100:.0f}cm 直线到达接触点:{msg}({force_note})",
+                        "contact": {"felt": None, "note": force_note}}
+            done = self._run_force_guarded(arm, last, frame, zero, d, first_msg, expect_contact)
+            done.setdefault("contact", {})["overshoot_m"] = round(extra, 3)   # 这次最多能越过接触点多远
+            return done
+        finally:
+            if self.wrench is not None:
+                self.wrench.stop()
+
+    def _force_zero(self, frame):
+        """开始订六维力并在静止时取零点。返回 (零点, 说明);用不了时零点为 None。"""
+        force_cfg = self.touch["force"]
+        if self.wrench is None:
+            return None, "没开六维力(touch.force.enabled),最后一段只走到接触点"
+        if not self.wrench.start(1.0):
+            return None, f"1s 没收到六维力({frame}),最后一段只走到接触点,不多走"
+        try:
+            zero = self.wrench.average(frame, force_cfg["tare_s"], force_cfg["max_age_s"])
+        except RuntimeError as e:
+            return None, f"{e},最后一段只走到接触点,不多走"
+        return zero, "六维力零点已取"
+
+    def _run_force_guarded(self, arm, last, frame, zero, d, first_msg, expect_contact):
+        """边执行最后一段边看力:变化超过阈值就取消轨迹,停稳后沿接近方向往回退 retreat_m。
+        expect_contact=False(gap > 0,停在跟前):没碰到是正常的,碰到了(比如对方的手迎上来)同样停 + 退。"""
+        force_cfg = self.touch["force"]
+        start = np.array(self.end_pose(arm)["xyz_m"])
+        outcome = {}
+
+        def run_last():
+            outcome["result"] = self.arm.execute(last)
+
+        worker = threading.Thread(target=run_last, daemon=True)
+        worker.start()
+        hit = None
+        change = 0.0
+        peak = 0.0
+        while worker.is_alive():
+            try:
+                force = self.wrench.latest(frame, force_cfg["max_age_s"])
+            except RuntimeError as e:                    # 力反馈断了:立刻停
+                self.arm.cancel()
+                worker.join(5.0)
+                return {"ok": False, "msg": f"已到预接触点;最后一段走到一半{e},已停"}
+            change = force_change_n(force, zero)
+            peak = max(peak, change)
+            if change > force_cfg["threshold_n"]:
+                self.arm.cancel()
+                hit = force
+                break
+            time.sleep(0.002)
+        worker.join(last.duration + 10.0)
+        moved = float(np.linalg.norm(np.array(self.end_pose(arm)["xyz_m"]) - start))
+        if hit is None:
+            ok, msg = outcome.get("result", (False, "执行线程没返回"))
+            if not ok:
+                return {"ok": False, "msg": f"已到预接触点;最后一段失败:{msg}"}
+            if not expect_contact:
+                return {"ok": True, "msg": f"{first_msg};最后 {moved * 100:.1f}cm 直线到达,停在物体跟前:{msg}",
+                        "contact": {"felt": False, "moved_m": round(moved, 3)}}
+            return {"ok": True, "msg": f"{first_msg};最后一段走完 {moved * 100:.1f}cm 也没感到接触力"
+                                      f"(力变化最大 {peak:.1f}N < 阈值 {force_cfg['threshold_n']}N),可能没碰到",
+                    "contact": {"felt": False, "moved_m": round(moved, 3)}}
+
+        time.sleep(force_cfg["settle_s"])
+        felt = {"felt": True, "force_change_n": round(change, 1), "moved_m": round(moved, 3),
+                "force_n": [round(float(v), 1) for v in hit[:3]]}
+        now, R_now = self.arm.pose(arm)
+        back = self.arm.plan_cartesian(arm, now - force_cfg["retreat_m"] * d, R_now, ignore_cloud=True)
+        if isinstance(back, str):
+            return {"ok": False, "msg": f"走了 {moved * 100:.1f}cm 碰到东西(力变化 {change:.1f}N)已停,"
+                                        f"但往回退 {force_cfg['retreat_m'] * 100:.0f}cm 算不出来:{back}",
+                    "contact": felt}
+        slow_down(back, self.touch["final_speed_m_s"])
+        ok, msg = self.arm.execute(back)
         if not ok:
-            return {"ok": False, "msg": f"已到预接触点;最后一段失败:{msg}"}
-        return {"ok": True, "msg": f"{first_msg};最后 {left * 100:.0f}cm 不查点云直线到达:{msg}"}
+            return {"ok": False, "msg": f"碰到东西已停,往回退失败:{msg}", "contact": felt}
+        felt["retreat_m"] = force_cfg["retreat_m"]
+        return {"ok": True, "msg": f"{first_msg};最后一段走了 {moved * 100:.1f}cm 碰到东西(力变化 {change:.1f}N),"
+                                  f"已停并往回退 {force_cfg['retreat_m'] * 100:.0f}cm",
+                "contact": felt}
 
     def close(self):
         self.arm.cancel()

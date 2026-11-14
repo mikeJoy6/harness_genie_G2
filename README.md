@@ -21,7 +21,7 @@ Control an AgiBot G2 humanoid robot with natural language. An LLM interprets the
 - **Natural-language tasks.** For a command like *"look down, find the mouse and pick it up"*, the model decides which tools to call and in what order.
 - **Open-vocabulary object finding.** Head RGB-D camera plus a local SAM 3 service. Objects are segmented by name, located in `base_link`, and given handles such as `mouse_1` or `phone_2`. Later tools refer to objects by handle only.
 - **Collision-aware arm planning.** The planner tries a Cartesian straight line first, then a `via_then_rrt` detour. If the target is out of reach, the robot leans or turns its waist and plans again. Every path is checked against whole-body self-collision and the octomap point cloud.
-- **A fixed two-stage chain for contact.** `touch_object` plans a fully collision-checked path to a pre-contact point it has already verified. Only the last few centimetres move slowly with the point-cloud check off; self-collision is still checked. See [docs/touch_chain.md](docs/touch_chain.md) (in Chinese).
+- **A fixed two-stage chain for contact.** `touch_object` plans a fully collision-checked path to a pre-contact point it has already verified. Only the last few centimetres move slowly, and there only the point-cloud cells around the target object are ignored; the table, other objects and self-collision are still checked. If the requested direction is out of reach, the robot leans first rather than switching to a sideways push. See [docs/touch_chain.md](docs/touch_chain.md) (in Chinese).
 - **Joint-space motion** for waist, head and both arms. If a direct move would collide, it goes through a recorded waypoint pose or a joint-space RRT.
 - **Gripper control** for the right-hand gripper, through the robot's GDK servo interface.
 - **Traceable runs.** Every model reply, tool call and result is logged to `traces/`.
@@ -75,7 +75,7 @@ The model cannot send absolute coordinates. Targets for `approach_object` and `t
 |---|---|
 | Plan printout | Every real motion prints its target and plan first. Set `confirm_motion: true` or pass `--confirm` to require `y` |
 | Plan-only mode | `--plan-only` runs the whole pipeline but never sends a motion |
-| Only `touch_object` may make contact | All other arm motions are fully checked against the point cloud and fail honestly. `touch_object` skips the cloud check only for the final segment (≤ 30 cm, 0.03 m/s) |
+| Only `touch_object` may make contact | All other arm motions are fully checked against the point cloud and fail honestly. `touch_object` ignores only the cloud cells around the target object, and only in the final segment (≤ 30 cm, 0.03 m/s) |
 | Standoff | `approach_object` stops 3–30 cm above the object (default 12 cm), and the whole path must stay above it |
 | Limits | Workspace box, per-move travel distance and end-effector speed are capped |
 | Detection expiry | `find_objects` results expire after 120 s |

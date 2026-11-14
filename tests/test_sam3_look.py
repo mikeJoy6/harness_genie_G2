@@ -332,7 +332,7 @@ def test_touch_hand_uses_touch_chain():
     assert np.allclose(backend.last_touch["direction"], d)
     assert np.allclose(backend.executed[-1], hand - gap * d)               # 夹爪尖在手前 2cm
     assert abs(result["tip_to_object_m"] - gap) < 1e-6
-    assert result["unchecked_m"] == 0.05 and "不查点云" in result["note"]
+    assert result["unchecked_m"] == 0.05 and "只放过物体附近的点云" in result["note"]
 
 
 def test_only_touch_skips_cloud_check():

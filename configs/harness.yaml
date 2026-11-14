@@ -47,15 +47,30 @@ motion:
     move_arm_end: [keep, free]               # “上抬 10 厘米”:先保持手腕姿态,够不着再放松
 
   arm_reach_m: 0.80         # 肩心到夹爪尖伸直最远 L1+L2+0.09+0.128 ≈ 0.83m;find_objects 用它报 reachable_by
-  touch:                    # touch_object:唯一会碰到物体、最后一段不查点云的运动(RosBackend.plan_touch)
+  touch:                    # touch_object:唯一会碰到物体、最后一段只放过物体附近点云的运动(RosBackend.plan_touch)
     default_gap_cm: 2       # 夹爪尖停在物体表面前多少厘米(物体坐标是可见表面的中位点)
     max_gap_cm: 10
-    backoffs_cm: [5, 8, 12, 16, 20, 25, 30]   # 预接触点离接触点多远,从近到远试;最后一个 = 不查点云那段的最长距离
+    backoffs_cm: [5, 8, 12, 16, 20, 25, 30]   # 预接触点离接触点多远,从近到远试;最后一个 = 最后一段的最长距离
                             # 不从 3cm 起:点云 3cm 一格,物体周围外扩后 3cm 处基本都“撞”
     roll_offsets_deg: [0, 45, -45, 90, -90]   # 同一个预接触点,手腕绕工具轴依次多转这些角度再试(先不自转)
     max_plan_tries: 4       # 验过的预接触点最多真规划几个(每个最坏 ~10s:直线 + 绕障 8s + 关节 RRT)
-    final_speed_m_s: 0.03   # 最后一段(不查点云)的末端速度
+    final_speed_m_s: 0.03   # 最后一段(只放过物体附近的点云)的末端速度
     joint_speed_rad_s: 0.20 # 第一段末端规划不通、改走关节空间时的速度
+    max_joint_fallback_deg: 90   # 第一段改走关节空间时,任一关节最多转多少度;超了宁可失败(11-14 真机甩了 154°)
+    keep_out:               # 最后一段 MoveIt 不查点云,改成自己用几何查(harness/touch_keep_out.py,2026-11-14 撞桌面后加)
+      object_radius_m: 0.08 # 物体坐标(可见表面中位点)这么近的点云格可以碰:物体自己,和它正下方的一点台面
+      gripper_radius_m: 0.04  # 夹爪近似成胶囊:半径
+      gripper_length_m: 0.13  # 从夹爪尖往回多长(TCP 到法兰 0.128m)
+    force:                  # 最后一段边走边看末端六维力(harness/backends/wrench_gdk.py,2026-11-14 加)
+      enabled: true         # 收不到力时自动退回“只走到接触点”
+      frames: {left: arm_l_end_link, right: arm_r_end_link}   # /gdk/motion_control_status 里的名字
+      threshold_n: 5.0      # 力比零点变了这么多(N,模长)= 碰到东西,马上停。真机没调过:
+                            #   ros2 run genie_robot_agibot_g2_hardware arm_monitor.py --arm right 看慢速移动时的读数再定
+      tare_s: 0.3           # 到预接触点后静止取零点的时长(夹爪重量也被减掉)
+      max_age_s: 0.1        # 力这么久没更新就当断了,立刻停
+      overshoot_m: 0.05     # gap 为 0 时终点再往前多走多少:碰到桌面 / 物体以力为准,多走的这段不会真走完
+      retreat_m: 0.02       # 碰到后沿接近方向往回退多少(给闭合夹爪留空间)
+      settle_s: 0.3         # 停下后等多久再退
   body_assist:              # 手臂够不着时先动腰:按改动从小到大找前倾(body j3,正 = 往前)/ 转腰(j5)
     enabled: true
     max_lean_deg: 30
@@ -96,7 +111,14 @@ vision:
     cameras:                # 名字 → sensor_msgs/CompressedImage 话题(JPEG 原样存盘,不重新编码)
       head_wide: /gdk/camera/head_stereo_left   # 头部双目左目,1920x1536,广角,适合拍人群
       head: /gdk/camera/head_color              # 头部 RGBD 的彩色,640x400,和深度对齐
-      # 左右手相机话题 /gdk/camera/hand_{left,right}_color 存在,但 2026-11-13 实测收不到帧,暂不开放
+      # hand_right: /gdk/camera/hand_right_color  # 腕部相机线丢了(2026-11-14),先不开放;接回后去掉注释
+  # 腕部相机(harness/perception/wrist_camera.py,RosBackend.wrist_frame),设计见 docs/wrist_camera.md。
+  # 2026-11-14 相机线丢了,先停用;接回后先跑 scripts/check_wrist_camera.py,再去掉下面的注释
+  # wrist:
+  #   timeout_s: 2.0
+  #   right:
+  #     color: /gdk/camera/hand_right_color   # sensor_msgs/CompressedImage
+  #     depth: null           # 确认有深度帧后填(G01 的 D405 是 /camera/hand_right_depth,16UC1)
   sam3:                     # find_objects:按英文名词找物体(~/sam3_service/server.py 要先开着)
     url: http://127.0.0.1:8765
     timeout_s: 10.0         # 一次分割最多等多久(正常 0.4s,刚启动的第一张约 1s)

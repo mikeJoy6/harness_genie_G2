@@ -10,6 +10,7 @@
 |---|---|
 | `run_task.py` | 启动 harness |
 | `motion_cli.py` | 手臂交互命令行(`move`、`line`、`goto`、`detour`),复制自 `agi@g2_robot` |
+| `check_wrist_camera.py` | 只读:腕部相机话题、帧率、RGB 还是 RGBD、TF([说明](../docs/wrist_camera.md)) |
 | `gripper_cli.py` | 单独测夹爪:`status` / `open` / `close`(走 GDK) |
 | `record_pose.py` | 把当前关节角录进 `configs/poses.yaml`;`--mirror-left` 生成左臂对称位姿 |
 | `goto_pose.py` | 全身移到 `configs/poses.yaml` 里录好的位姿,带碰撞检查,默认直接执行(`--confirm` 按 y) |

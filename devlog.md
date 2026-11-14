@@ -4,6 +4,66 @@
 
 # 2026.11.14
 
+## touch 最后一段加六维力(碰到就停、退 2cm);腕部相机接口
+
+**六维力**([docs/touch_chain.md](docs/touch_chain.md) “最后一段加六维力”):
+- 用户要求:无视点云的那段开六维力,超过阈值 = 碰到桌面,停下往回走 2cm(给闭合夹爪留空间)就算完成。
+- 力从哪来:`~/agi@g2_robot` 的纸板任务早就用过 —— GDK `/gdk/motion_control_status` 的 `frame_wrenchs`,100Hz,`arm_r_end_link` 系,已减手臂重力、有死区。照搬成 [harness/backends/wrench_gdk.py](harness/backends/wrench_gdk.py)。
+- [`_execute_touch`](harness/backends/ros.py):到预接触点静止取零点 → gap 0 时终点多走 5cm(够不着就 3、1.5、0)→ 边走边看 |F − 零点|,> 5N 就 `ArmMotion.cancel()` → 退 2cm。力断了立刻停;收不到力退回只走到接触点。结果带 `contact`,gateway 透传。
+- 离线踩坑:按接触点规划时,手臂到了接触点只能再往下 1.5cm,碰不到桌面 → `plan_touch` 在有力、gap 0 时按“接触点 + 5cm”定姿态、关节角和动腰。
+- 工具说明和系统提示写明:gap_cm=0 下探到感到接触再退 2cm,然后闭合。
+- `harness.yaml` `motion.touch.force`。**阈值 5N 没调过**,先用 `arm_monitor.py` 看真实读数。
+
+**腕部相机**([docs/wrist_camera.md](docs/wrist_camera.md)):**后来暂停 —— 相机线丢了,配置里 `vision.wrist` 和 `take_photo` 的 `hand_right` 已注释掉,代码和设计留着,接回后再开。**
+- RGB 还是 RGBD:G2 只看到 `/gdk/camera/hand_{left,right}_color`,11-13 收不到帧;G01 GDK 指南说腕部是 D405(RGBD),v1.5.0 起才有深度话题,而且要在机器人端模式配置里打开。URDF 没有腕部相机 link。→ 新脚本 [scripts/check_wrist_camera.py](scripts/check_wrist_camera.py) 在真机上确认。
+- 接口:[harness/perception/wrist_camera.py](harness/perception/wrist_camera.py) `WristCamera.grab` → `RosBackend.wrist_frame(arm)`;`take_photo` 加 `hand_right`。配置 `vision.wrist`(深度话题先留空)。
+- 对准:相机跟着夹爪走,示教一次“物体在两指之间时的像素区域”,不需要手眼标定;纠偏用点动标定(手动 1cm 看像素移动)。
+- 认不出时:有深度 → 去掉桌面平面取参考区域里最近的块(主力),名字分割只做确认;只有 RGB → 名字分割,失败再在参考区域放点让 SAM 补全(服务要开 `enable_inst_interactivity`)。
+
+测试:`test_ros_backend_logic.py` 加 5 个六维力测试(替身 JTC 逐点走、可取消;替身力在夹爪尖低于桌面时 20N);新 `tests/test_wrist_camera.py` 3 个;`test_touch_keep_out.py` 加 `force_change_n`。145 过、1 败(还是工作范围那个)。**真机都没跑。**
+
+```bash
+cd ~/robot_harness && source /opt/ros/humble/setup.bash
+python3 -m pytest tests -q
+
+# 真机(hardware.launch 由人启动):先看六维力在慢速移动、碰桌面时的读数,定阈值
+source ~/agi@g2_robot/env_g2.sh
+ros2 run genie_robot_agibot_g2_hardware arm_monitor.py --arm right
+
+# 腕部相机:有没有帧、RGB 还是 RGBD
+python3 scripts/check_wrist_camera.py --seconds 5
+# 腕部画面 + SAM 3 按名字分割(近距离认不认得出)
+python3 scripts/sam3_live.py --topic /gdk/camera/hand_right_color "mouse"
+
+# 抓鼠标复测:预期 张开 → 罩住鼠标往下 → 碰到桌面停 → 退 2cm → 闭合 → 抬起
+python3 scripts/run_task.py --real "抓取最近的鼠标"
+```
+
+## 真机“抓取最近的鼠标”撞桌面:touch 最后一段只放过物体附近的点云
+
+现象:`approach_object` 到鼠标上方 12cm 后,`touch_object` 把手臂收回 30cm,夹爪水平往前推,撞上桌面。trace `traces/20261114_023124.jsonl`。
+
+原因(详见 [docs/touch_chain.md](docs/touch_chain.md) “2026-11-14 真机撞桌面”):
+- 朝下在接触点够不着。离线复现(真实 URDF,11-13 的腰姿态):鼠标上方 12/8/4cm 离竖直最少差 12.6°/12.1°/13.5°,接触点无解;
+- 原来只有所有方向都没候选才动腰,“肩→物体水平”有候选就直接用了;
+- 水平最后 30cm “不查点云”连桌面也不查(桌面只在点云里)。
+
+改动:
+- 新 [harness/touch_keep_out.py](harness/touch_keep_out.py)(纯 numpy):`outside_object` 去掉物体 8cm 内的格,`gripper_hits` 夹爪胶囊(长 13cm、半径 4cm)碰到几格,`rests_on_surface` 物体是不是放在台面上。
+- [`ArmMotion.octomap_base`](harness/motion/arm_motion.py#L426) 取 base_link 的 octomap 格。
+- [`plan_touch`](harness/backends/ros.py#L383):某方向接触点够不着就先动腰再试这个方向;物体在台面上不用水平方向([`_touch_directions`](harness/backends/ros.py#L461));候选、第一段终点、执行前([`_execute_touch`](harness/backends/ros.py#L668))都过 [`_keep_out_ok`](harness/backends/ros.py#L480);结果带 `direction_notes`,gateway 透传给模型。
+- `harness.yaml` `motion.touch.keep_out` 三个参数;各处“不查点云”的说法改成“只放过物体附近的点云”。
+
+测试:新 `tests/test_touch_keep_out.py` 6 个;`test_ros_backend_logic.py` 加 3 个复现这次(以前会选水平,现在先动腰再朝下,不许动腰时宁可失败)。全部 136 过、1 败(还是 `test_arm_target_outside_workspace_refused`,工作范围配置被放宽)。**真机没跑。** 已知不足:胶囊 4cm 半径比张开的两指窄;抓住没有仍然没验证(夹爪不回报位置,下一步是抬起后重新分割看鼠标跟没跟手)。
+
+```bash
+cd ~/robot_harness && source /opt/ros/humble/setup.bash
+python3 -m pytest tests/test_touch_keep_out.py tests/test_ros_backend_logic.py -q
+python3 -m pytest tests -q
+# 真机复测(hardware.launch 由人启动,要带点云:不要 use_head_cloud:=false,否则几何检查没有点云可查)
+python3 scripts/run_task.py --real "抓取最近的鼠标"
+```
+
 ## 准备上 GitHub:英文 README 做默认,中文改名,拍摄清单
 
 - `README.md` → [README.zh-CN.md](README.zh-CN.md)(`git mv`),内容顺手更新到现状:HSV 颜色定位删掉、改成 SAM 3 + 物体编号;工具表补 `find_objects` / `touch_object` / `gripper`;安全表按现在的配置(悬停 3~30cm 默认 12cm、物体 120s 作废、每条指令最多动 8 次、只有 touch 最后一段不查点云)。

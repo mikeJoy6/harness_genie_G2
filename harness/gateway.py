@@ -3,7 +3,7 @@
 碰撞由规划器负责(整机自碰撞 + octomap 点云 + 碰撞体,会撞就绕),这里只守底线:
   · 物体只能用 find_objects(SAM 3)返回的编号指代,坐标存在 self.objects 里,模型给不了坐标
   · approach_object / point_at_object / look_at_object:目标由物体坐标算出来,全程查碰撞
-  · touch_object:   唯一会碰到物体的工具,最后几厘米不查点云(backend.plan_touch)
+  · touch_object:   唯一会碰到物体的工具,最后几厘米只放过物体附近的点云(backend.plan_touch)
   · move_arm_end:   只能给相对当前末端的偏移和转角;目标要在工作范围内
   · move_joints:    关节增量或目标角;要在 URDF 限位内,单次变化有上限(防止模型把度当成弧度之类的错)
   · go_to_pose:     只能选 configs/poses.yaml 里人录好的位姿
@@ -55,7 +55,7 @@ def _tool_axis_report(R_rpy_deg):
 
 
 def _plan_notes(plan):
-    """规划动了腰,或者 touch 最后一段不查点云时,把这件事写进结果,模型要如实告诉用户。"""
+    """规划动了腰,或者 touch 最后一段放过物体附近的点云时,把这件事写进结果,模型要如实告诉用户。"""
     notes = {}
     if plan.get("kind") == "body_then":
         notes["body_assist"] = {"lean_deg": plan["lean_deg"], "turn_deg": plan["turn_deg"]}
@@ -65,7 +65,9 @@ def _plan_notes(plan):
         notes["precontact_xyz_m"] = _round(plan["precontact_xyz_m"])
         notes["unchecked_m"] = round(plan["unchecked_m"], 3)
         notes["note"] = (f"先查碰撞到接触点前 {plan['unchecked_m'] * 100:.0f}cm,"
-                         "最后这段不查点云(会接触物体),自碰撞照查")
+                         "最后这段只放过物体附近的点云(会接触物体),桌面等其他点云和自碰撞照查")
+    if plan.get("direction_notes"):
+        notes["direction_notes"] = plan["direction_notes"]     # 没用上的接近方向为什么没用上
     if plan.get("tool_axis_miss_deg") is not None:
         notes["tool_axis_miss_deg"] = plan["tool_axis_miss_deg"]
     if plan.get("retreat_m") is not None:
@@ -246,7 +248,7 @@ class Gateway:
     def _touch_object(self, args):
         """夹爪尖碰到 find_objects 找到的物体(击掌、碰拳、抓取时下探),或停在它前面 gap_cm。
         唯一会接触物体的工具:物体本身在点云里,backend.plan_touch 固定两段——
-        查碰撞到接触点前几厘米,再不查点云慢速直线贴上去(自碰撞照查)。"""
+        查碰撞到接触点前几厘米,再慢速直线贴上去(只放过物体附近的点云,桌面和自碰撞照查)。"""
         cfg = self.cfg
         arm = args.get("arm", "right")
         if arm not in ARMS:
@@ -370,7 +372,10 @@ class Gateway:
             return {"ok": False, "executed": False, "error": "用户拒绝了这次运动", **info}
         self.moves += 1
         done = self.backend.execute(plan)
-        return {"ok": done["ok"], "executed": done["ok"], "msg": done["msg"], **info}
+        result = {"ok": done["ok"], "executed": done["ok"], "msg": done["msg"], **info}
+        if "contact" in done:                    # touch_object 最后一段的六维力结果
+            result["contact"] = done["contact"]
+        return result
 
     def _check_workspace(self, arm, target):
         for axis, value in zip("xyz", target):
