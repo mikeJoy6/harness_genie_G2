@@ -3,7 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]          # 项目根目录(.env 在这里)
 
-# 离线时用的 URDF 文件(fake_robot.py 和 kinematics.py 自测用)。真机上 URDF 从话题里收
+# 离线时用的 URDF 文件(fake_robot.py 和 g2_kinematics.py 自测用)。真机上 URDF 从话题里收
 URDF_FILE = Path.home() / "agi@g2_robot/src/genie_robot_description/urdf/G2_t2_crsB/G2_t2_crsB.urdf"
 
 # ---- ROS 接口的名字 ----

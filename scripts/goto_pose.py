@@ -6,7 +6,7 @@
   python3 scripts/goto_pose.py look --groups head     只动头
 
 沿途每 0.05rad 问一次 MoveIt 自碰撞;直线会撞就先试经其他录好位姿中转,再试关节 RRT。
-执行前打印每组最大关节变化,输入 y 才动;执行中 Ctrl-C 取消。
+执行前打印每组最大关节变化后直接执行(加 --confirm 则输入 y 才动);执行中 Ctrl-C 取消。
 """
 import argparse
 import math
@@ -40,6 +40,7 @@ def main():
     parser.add_argument("--groups", help="只动哪些组,逗号分隔:body,head,left_arm,right_arm")
     parser.add_argument("--speed", type=float, default=0.2, help="最慢关节的峰值速度 rad/s")
     parser.add_argument("--list", action="store_true", help="列出位姿")
+    parser.add_argument("--confirm", action="store_true", help="执行前等人按 y(默认直接执行)")
     args = parser.parse_args()
 
     poses = load_poses()
@@ -96,9 +97,13 @@ def main():
             if joints:
                 delta = max(abs(target[j] - q0[j]) for j in joints)
                 print(f"  {g:<10} 最大关节变化 {math.degrees(delta):6.1f}°")
-        if input(f"全身移到 '{args.name}'({'+'.join(groups)}),速度 {args.speed} rad/s。输入 y 执行:").strip().lower() != "y":
-            print("已取消,机器人没有动")
-            return
+        what = f"全身移到 '{args.name}'({'+'.join(groups)}),速度 {args.speed} rad/s"
+        if args.confirm:
+            if input(f"{what}。输入 y 执行:").strip().lower() != "y":
+                print("已取消,机器人没有动")
+                return
+        else:
+            print(f"[自动执行] {what}")
 
         detour = JointDetour(body._valid, joint_limits(urdf["xml"]),
                              {n: p["joints"] for n, p in poses.items()}, log=print)

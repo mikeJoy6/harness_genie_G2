@@ -56,6 +56,9 @@ ACTION = {"left": "/left_arm_group_controller/follow_joint_trajectory",
           "right": "/right_arm_group_controller/follow_joint_trajectory"}
 
 JOINT_MAX_AGE = 0.5          # 参与解算的关节反馈最大年龄(s)
+OCTOMAP = "<octomap>"          # MoveIt 碰撞结果里点云的名字
+ESCAPE_M = 0.06              # 起点就在接触(夹着东西、贴着桌面)时,末端离开起点这么远以内的碰撞不算(robot_harness 加)
+JOINT_WAIT = 1.0             # 反馈偶尔断一下时,最多等这么久再报错(robot_harness 加的;原版直接报错)
 # 关节点到点(pose_to)：genie pose_ab 的默认值
 #   2026-11-02 提速：速度不再另设上限，直接用 URDF 限位(3.3~5.3rad/s)；加速度 0.8、加加速度 3.0 仍限
 #   （1rad 的点到点 7.5s → ~2.7s，现在是加速度/加加速度说了算）
@@ -316,14 +319,20 @@ class ArmMotion(Node):
         return self.urdf is not None and all(j in self.cur for a in ARMS for j in self.kins[a].joint_names)
 
     def _fresh(self, joints):
-        """取这组关节的最新值；任一缺失或超过 JOINT_MAX_AGE 就抛 RuntimeError。"""
-        now = time.monotonic()
-        with self._lock:
-            missing = [j for j in joints if j not in self.cur]
-            stale = [j for j in joints if j in self.cur_t and now - self.cur_t[j] > JOINT_MAX_AGE]
-            if missing or stale:
-                raise RuntimeError(f"关节反馈不可用：缺 {missing} / 过期 {stale}（hardware.launch 在跑吗？）")
-            return np.array([self.cur[j] for j in joints])
+        """取这组关节的最新值。任一缺失或超过 JOINT_MAX_AGE:先等最多 JOINT_WAIT 秒(网络偶尔断一下),
+        还不行才抛 RuntimeError。2026-11-12 长序任务中途出现过一次腰关节反馈过期,复现不出来,所以加这个等待。"""
+        deadline = time.monotonic() + JOINT_WAIT
+        while True:
+            now = time.monotonic()
+            with self._lock:
+                missing = [j for j in joints if j not in self.cur]
+                stale = [j for j in joints if j in self.cur_t and now - self.cur_t[j] > JOINT_MAX_AGE]
+                if not missing and not stale:
+                    return np.array([self.cur[j] for j in joints])
+            if now > deadline:
+                ages = {j: round(now - self.cur_t[j], 2) for j in stale}
+                raise RuntimeError(f"关节反馈不可用：缺 {missing} / 过期 {ages} 秒（等了 {JOINT_WAIT}s;hardware.launch 在跑吗？）")
+            time.sleep(0.02)
 
     def q_arm(self, arm):
         return self._fresh(self.kins[arm].joint_names)
@@ -361,9 +370,11 @@ class ArmMotion(Node):
             time.sleep(0.002)
         return fut.result() if fut.done() else None
 
-    def valid(self, arm, q):
+    def valid(self, arm, q, ignore_cloud=False):
         """整机自碰撞校验：当前全身 + 这条手臂设成 q，问 MoveIt 整台机器人撞不撞（含另一条臂/腰/头/底盘，
-        group 留空 = 整机，同 genie pose_ab）。服务不可用时降级放行(True)并只警告一次；超时保守当撞(False)。"""
+        group 留空 = 整机，同 genie pose_ab）。服务不可用时降级放行(True)并只警告一次；超时保守当撞(False)。
+        ignore_cloud=True(robot_harness 加,只给 touch_object 最后一段用):和点云(<octomap>)的接触不算,
+        自碰撞、和碰撞体(桌面盒子等)的接触照样算。"""
         if not self._sv.service_is_ready():
             if not self._warned_sv:
                 self.get_logger().warn("/check_state_validity 不可用(move_group 没起?)，本次跳过碰撞检查")
@@ -375,22 +386,42 @@ class ArmMotion(Node):
         #   False 会把附着物全部清掉——2026-11-02 实测挂着纸板插进料框的姿态照样报"不撞"
         req.robot_state.is_diff = True
         res = self._wait_future(self._sv.call_async(req), SV_TIMEOUT)
-        return bool(res.valid) if res is not None else False
+        if res is None:
+            return False
+        if res.valid:
+            return True
+        if not ignore_cloud:
+            return False
+        for c in res.contacts:
+            if OCTOMAP not in (c.contact_body_1, c.contact_body_2):
+                return False                                   # 有一处不是点云的接触:真撞
+        return True
 
-    def path_clear(self, arm, path):
-        """整条路径碰撞校验：关节每变化 CHECK_STEP(2°) 采一次（相邻路点之间也插值采），终点必查。"""
+    def path_clear(self, arm, path, ignore_cloud=False):
+        """整条路径碰撞校验：关节每变化 CHECK_STEP(2°) 采一次（相邻路点之间也插值采），终点必查。
+        ignore_cloud=True:点云接触不算(见 valid)。"""
         if not self._sv.service_is_ready():
             self.valid(arm, path[-1])          # 触发一次"不可用"警告
             return True
         P = np.asarray(path)
-        if not self.valid(arm, P[0]):
-            return False
+        # 起点就撞(刚夹住鼠标、夹爪贴着桌面——要碰的东西本来就在点云里):允许“脱离”——
+        #   末端离起点 ESCAPE_M 以内的碰撞不算;一旦不撞了就不许再撞;走出 ESCAPE_M 还在撞就判失败。
+        escaping = not self.valid(arm, P[0], ignore_cloud)
+        kin = self.kins[arm]
+        p_start = kin.fk(P[0])[0]
         for q0, q1 in zip(P[:-1], P[1:]):
             n = max(1, math.ceil(float(np.max(np.abs(q1 - q0))) / CHECK_STEP))
             for s in np.linspace(0.0, 1.0, n + 1)[1:]:
-                if not self.valid(arm, q0 + s * (q1 - q0)):
+                q = q0 + s * (q1 - q0)
+                ok = self.valid(arm, q, ignore_cloud)
+                if escaping:
+                    if ok:
+                        escaping = False
+                    elif float(np.linalg.norm(kin.fk(q)[0] - p_start)) > ESCAPE_M:
+                        return False
+                elif not ok:
                     return False
-        return True
+        return not escaping
 
     def obstacles_root(self, arm):
         """末端粗筛用的障碍点，换到手臂链根系(arm_base_link)：MoveIt 当前 octomap 的占据体素中心 + planning scene 里
@@ -424,7 +455,7 @@ class ArmMotion(Node):
         return (P - pb) @ Rb                                   # base_link → arm_base_link: Rbᵀ(p − pb)
 
     # ── 时间参数化 ────────────────────────────────────────────────────
-    def _cart_traj(self, arm, path):
+    def _cart_traj(self, arm, path, ignore_cloud=False):
         """笛卡尔路径(很多 1cm 小步)：cart_profile 沿路径变速（末端匀速 CART_SPEED，单关节超速/超加速度的地方就地压速），
         按 CART_DT 取点发给 JTC，路点带速度、中途不停。"""
         kin = self.kins[arm]
@@ -434,7 +465,7 @@ class ArmMotion(Node):
             return make_trajectory(np.array([P[0], P[-1]]), kin.joint_names,
                                    self.vel_limits[arm], JOINT_SETTINGS)[0]
         tt, P, V = cart_samples(*prof)
-        if CART_SMOOTH > 0 and not self.path_clear(arm, P):     # 倒圆角后的路径会撞 → 退回不平滑（拐角处会慢下来）
+        if CART_SMOOTH > 0 and not self.path_clear(arm, P, ignore_cloud):     # 倒圆角后的路径会撞 → 退回不平滑（拐角处会慢下来）
             self.get_logger().warn("平滑后的笛卡尔路径会撞，退回原路径")
             tt, P, V = cart_samples(*cart_profile(kin, path, self.vel_limits[arm], smooth=0.0))
         traj = JointTrajectory(joint_names=list(kin.joint_names))
@@ -445,8 +476,10 @@ class ArmMotion(Node):
         return traj
 
     # ── 规划 ──────────────────────────────────────────────────────────
-    def plan_cartesian(self, arm, p_base, R_base=None, mode="full"):
-        """积分笛卡尔直线到 base_link 系目标。R_base=None 时保持当前姿态。返回 Plan 或失败原因(str)。"""
+    def plan_cartesian(self, arm, p_base, R_base=None, mode="full", ignore_cloud=False):
+        """积分笛卡尔直线到 base_link 系目标。R_base=None 时保持当前姿态。返回 Plan 或失败原因(str)。
+        ignore_cloud=True:和点云的接触不算,自碰撞照查(robot_harness 加的,只给 touch_object 最后几厘米用,
+        因为点云把要碰的东西也扫成了障碍)。"""
         kin, S = self.kins[arm], self.solvers[arm]
         q0 = self.q_arm(arm)
         if R_base is None:
@@ -467,9 +500,9 @@ class ArmMotion(Node):
         bad = path_sane(path, dist + LM_ANG_W * turn, "笛卡尔路径")
         if bad:
             return bad
-        if not self.path_clear(arm, path):
-            return "笛卡尔路径会撞"
-        return Plan(arm, kin.joint_names, path, self._cart_traj(arm, path),
+        if not self.path_clear(arm, path, ignore_cloud):
+            return "笛卡尔路径会撞" + ("(自碰撞或碰撞体)" if ignore_cloud else "")
+        return Plan(arm, kin.joint_names, path, self._cart_traj(arm, path, ignore_cloud),
                     f"积分笛卡尔直线 {dist*100:.1f}cm" + (f" 转 {np.degrees(turn):.0f}°" if turn > 1e-3 else ""))
 
     def _solve_goal(self, arm, p_base, R_base, mode):

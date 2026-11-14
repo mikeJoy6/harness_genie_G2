@@ -3,14 +3,14 @@ import json
 import urllib.error
 import urllib.request
 
-import config
+import g2_config
 
 API_URL = "https://api.deepseek.com/chat/completions"
 MODEL = "deepseek-flash"
 
 
 def read_key(name="DEEPSEEK_API_KEY"):
-    env_path = config.ROOT / ".env"
+    env_path = g2_config.ROOT / ".env"
     for line in env_path.read_text(encoding="utf-8").splitlines():
         if line.startswith(name + "="):
             return line.split("=", 1)[1].strip()

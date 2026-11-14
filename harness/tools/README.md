@@ -6,18 +6,22 @@
 
 ## 这里的文件
 
-`objects.py` 定义了三个工具,颜色选项来自 `configs/colors.yaml`:
+| 文件 | 工具 | 会让机器人动吗 |
+|---|---|---|
+| `objects.py` | `find_objects`:SAM 3 按英文名找物体,返回编号 | 不会 |
+| | `approach_object`:末端到物体正上方(默认右臂) | **会** |
+| | `touch_object`:夹爪尖碰到物体(唯一最后几厘米不查点云的) | **会** |
+| `motion.py` | `get_robot_state`:所有关节角 + 两臂末端位姿 | 不会 |
+| | `move_arm_end`:末端相对平移 / 转动,直线不行自动绕障 | **会** |
+| | `move_joints`:腰 / 头 / 左臂 / 右臂某一组关节转动 | **会** |
+| | `go_to_pose`:回到 `configs/poses.yaml` 里录好的位姿 | **会** |
 
-| 工具 | 会让机器人动吗 |
-|---|---|
-| `locate_object` | 不会 |
-| `get_left_end_pose` | 不会 |
-| `approach_object` | **会**,且需要你按 y |
+`objects.py` 里的 `make_tools(位姿名, 位姿说明)` 把两个文件的工具合在一起。没有录位姿时不提供 `go_to_pose`。
 
 ## 和哪里联动
 
 ```text
-tools/objects.py ─→ loop.py 每轮发给模型
+tools/objects.py + motion.py ─→ loop.py 每轮发给模型
                        │ 模型回复要调用的工具名
                        ▼
                   gateway.py 用同样的名字找到处理函数
@@ -27,10 +31,13 @@ tools/objects.py ─→ loop.py 每轮发给模型
 
 ## 示例:工具的格式
 
-`approach_object` 没有 x、y、z 参数。模型无法指定坐标,只能选择要不要靠近、停多高:
+模型给不了绝对坐标:`approach_object` 的目标点由 `find_objects` 的编号查出,`move_arm_end` 只收相对偏移:
 
 ```python
-_tool("approach_object",
-      "让左臂末端沿直线移动到最近一次定位到的物体正上方。会让机器人运动。",
-      {"standoff_cm": {"type": "number", "description": "末端停在物体上方多少厘米"}})
+_tool("move_arm_end",
+      "让一条手臂的末端相对当前位置平移和/或转动……会让机器人运动。",
+      {"arm": {"type": "string", "enum": ["left", "right"]},
+       "offset_cm": _xyz("相对当前末端的平移 [dx, dy, dz],单位厘米……"),
+       "rotate_deg": _xyz("绕 base_link 的 x、y、z 轴依次转多少度,不转就不填")},
+      required=["arm"])
 ```

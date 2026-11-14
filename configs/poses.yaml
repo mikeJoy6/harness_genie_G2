@@ -91,3 +91,57 @@ zero:
     idx67_arm_r_joint7: 0.0
   note: ''
   recorded: '2026-11-03 22:13:21'
+right_now:
+  groups:
+  - right_arm
+  joints:
+    idx61_arm_r_joint1: -1.95832
+    idx62_arm_r_joint2: 0.63835
+    idx63_arm_r_joint3: 1.49778
+    idx64_arm_r_joint4: -1.73504
+    idx65_arm_r_joint5: 2.23027
+    idx66_arm_r_joint6: 0.22415
+    idx67_arm_r_joint7: 0.36839
+  note: record_pose.py 录于 2026-11-12 22:53:40
+right_now_mirror:
+  groups:
+  - left_arm
+  joints:
+    idx21_arm_l_joint1: 1.95832
+    idx22_arm_l_joint2: 0.63835
+    idx23_arm_l_joint3: -1.49778
+    idx24_arm_l_joint4: -1.73504
+    idx25_arm_l_joint5: -2.23027
+    idx26_arm_l_joint6: 0.22415
+    idx27_arm_l_joint7: -0.36839
+  note: right_now 右臂的左右对称,2026-11-12 22:53:40
+init:
+  groups:
+  - body
+  - head
+  - left_arm
+  - right_arm
+  joints:
+    idx01_body_joint1: -0.69552
+    idx02_body_joint2: 1.56814
+    idx03_body_joint3: -0.86744
+    idx04_body_joint4: 0.0
+    idx05_body_joint5: 0.0
+    idx11_head_joint1: 0.0
+    idx12_head_joint2: 0.0
+    idx13_head_joint3: 0.4745
+    idx21_arm_l_joint1: 1.95832
+    idx22_arm_l_joint2: 0.63835
+    idx23_arm_l_joint3: -1.49778
+    idx24_arm_l_joint4: -1.73504
+    idx25_arm_l_joint5: -2.23027
+    idx26_arm_l_joint6: 0.22415
+    idx27_arm_l_joint7: -0.36839
+    idx61_arm_r_joint1: -1.95832
+    idx62_arm_r_joint2: 0.63835
+    idx63_arm_r_joint3: 1.49778
+    idx64_arm_r_joint4: -1.73504
+    idx65_arm_r_joint5: 2.23027
+    idx66_arm_r_joint6: 0.22415
+    idx67_arm_r_joint7: 0.36839
+  note: 初始位姿

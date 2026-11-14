@@ -58,13 +58,16 @@ def _fmt_pose(p, R):
     return f"xyz=({p[0]:+.3f}, {p[1]:+.3f}, {p[2]:+.3f}) m   rpy=({r:+.1f}, {pi:+.1f}, {y:+.1f})°"
 
 
+CONFIRM = "--confirm" in sys.argv       # 默认规划完直接执行;加 --confirm 每次问 y
+
+
 def _confirm_and_run(node, plan):
     if isinstance(plan, str):
         print(f"  ✗ 规划失败：{plan}")
         return
     assert isinstance(plan, Plan)
     print("  " + plan.summary())
-    if input("  执行？[y/N] ").strip().lower() != "y":
+    if CONFIRM and input("  执行？[y/N] ").strip().lower() != "y":
         print("  已取消")
         return
     ok, msg = node.execute(plan)

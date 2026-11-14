@@ -7,7 +7,7 @@ import math
 
 import numpy as np
 
-import config
+import g2_config
 
 TOOLS = [
     {
@@ -18,7 +18,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "group": {"type": "string", "enum": list(config.JOINT_GROUPS),
+                    "group": {"type": "string", "enum": list(g2_config.JOINT_GROUPS),
                               "description": "waist 腰,head 头,left_arm 左臂,right_arm 右臂"},
                 },
                 "required": ["group"],
@@ -34,7 +34,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "link": {"type": "string", "enum": config.LINKS_FOR_LLM,
+                    "link": {"type": "string", "enum": g2_config.LINKS_FOR_LLM,
                              "description": "arm_l_end_link 左手末端,arm_r_end_link 右手末端,head_link3 头,"
                                             "body_link5 腰顶,arm_l_link4/arm_r_link4 左/右肘"},
                 },
@@ -63,21 +63,21 @@ TOOLS = [
 ]
 
 
-def make_handlers(ros):
-    """返回 {工具名: 函数}。函数里用到的 ros 是传进来的,所以这里写成"函数里定义函数"。"""
+def make_handlers(robot_io):
+    """返回 {工具名: 函数}。函数里用到的 robot_io 是传进来的,所以这里写成"函数里定义函数"。"""
 
     def get_joint_angles(group):
-        values = ros.joints(config.JOINT_GROUPS[group])
+        values = robot_io.joints(g2_config.JOINT_GROUPS[group])
         return {"ok": True, "group": group, "degrees": [round(math.degrees(v), 2) for v in values.values()]}
 
     def get_link_position(link):
-        xyz, _ = ros.lookup(config.BASE_FRAME, link)
-        return {"ok": True, "link": link, "frame": config.BASE_FRAME, "xyz_m": np.round(xyz, 4).tolist()}
+        xyz, _ = robot_io.lookup(g2_config.BASE_FRAME, link)
+        return {"ok": True, "link": link, "frame": g2_config.BASE_FRAME, "xyz_m": np.round(xyz, 4).tolist()}
 
     def check_joint_change(group, joint_index, delta_deg):
-        name = config.JOINT_GROUPS[group][joint_index - 1]
-        new_value = ros.joints([name])[name] + math.radians(delta_deg)
-        res = ros.check_collision({name: new_value})
+        name = g2_config.JOINT_GROUPS[group][joint_index - 1]
+        new_value = robot_io.joints([name])[name] + math.radians(delta_deg)
+        res = robot_io.check_collision({name: new_value})
         if not res["available"] or res["valid"] is None:
             return {"ok": False, "error": res["error"]}
         return {"ok": True, "joint": name, "collision": not res["valid"],

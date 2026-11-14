@@ -4,15 +4,13 @@
 
 模型只会输出文字。这里的代码把模型的话变成受控的动作,再把结果告诉模型。
 
-你说“让左臂末端靠近红色积木”后,实际发生的事:
+你说“右手去手机上方”后,实际发生的事:
 
 ```text
-模型:调用 locate_object
-程序:用头部相机算出积木坐标,发布 TF target_object,把坐标告诉模型
-模型:调用 get_left_end_pose
-程序:读出 arm_l_end_link 坐标,告诉模型
-模型:调用 approach_object
-程序:算目标点 → 安全检查 → 规划 → 等你按 y → 执行 → 告诉模型结果
+模型:调用 find_objects(phone)
+程序:SAM 3 分割 + 深度算出每个手机的坐标,存进编号表,把 phone_1、phone_2 告诉模型
+模型:调用 approach_object(object_id=phone_1)
+程序:按编号查坐标 → 算目标点 → 安全检查 → 规划 → 执行 → 告诉模型结果
 模型:没有工具要调用了,用文字告诉你结果      ← 循环结束
 ```
 
@@ -25,7 +23,6 @@
 | `loop.py` | 循环:问模型 → 执行工具 → 把结果告诉模型 |
 | `llm.py` | 通过 HTTP 调用 DeepSeek |
 | `gateway.py` | 关卡:计算目标点,所有安全检查都在这里 |
-| `colors.py` | 颜色表读写、由采样像素计算 HSV 范围 |
 | `motion/` | 运控与绕障规划,见其 README |
 | `perception/` | 头部 RGBD,见其 README |
 

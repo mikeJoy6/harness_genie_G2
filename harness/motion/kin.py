@@ -18,6 +18,16 @@ xml_reflection.core.on_error = lambda *_args, **_kw: None
 
 ARM_ROOT = "arm_base_link"
 ARM_TIP = {"left": "arm_l_end_link", "right": "arm_r_end_link"}
+# robot_harness 加:URDF 里有 TCP(hardware.launch end_effector:=true 加载的 G2_t2_crsB_ee.urdf:end_link 沿 z 平移 0.128,
+#   即夹爪 / 末端长方体的端面中心)就把手臂链的末端设到 TCP。这样所有目标点、末端位姿、高度限制都是“夹爪尖在哪”。
+TCP_TIP = {"left": "tcp_l_link", "right": "tcp_r_link"}
+
+
+def arm_tip(urdf_str, arm):
+    """这份 URDF 里手臂链的末端:有 TCP 用 TCP,没有用法兰 arm_*_end_link。"""
+    if f'link name="{TCP_TIP[arm]}"' in urdf_str:
+        return TCP_TIP[arm]
+    return ARM_TIP[arm]
 BASE = "base_link"
 
 
@@ -118,7 +128,7 @@ class ChainKin:
 
 def arm_kin(urdf_str, arm):
     """G2 手臂链：arm_base_link → arm_{l,r}_end_link（7 关节）。"""
-    return ChainKin(urdf_str, ARM_ROOT, ARM_TIP[arm])
+    return ChainKin(urdf_str, ARM_ROOT, arm_tip(urdf_str, arm))
 
 
 def body_kin(urdf_str):

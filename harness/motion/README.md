@@ -4,9 +4,13 @@
 
 把“去某个点”变成一条安全的关节轨迹,发给 `hardware.launch.py` 里的 JTC 控制器执行。包括运动学、IK、笛卡尔直线规划、绕障规划、全身位姿运动。
 
-这里的代码**复制自 `agi@g2_robot`**(提交 `ecdfb5d`,2026-11-08),除了 import 路径以外没有改动。这样 harness 只需要 `hardware.launch.py` 在跑,不再 import `agi@g2_robot` 的任何包。
+这里的代码**复制自 `agi@g2_robot`**(提交 `ecdfb5d`,2026-11-08)。这样 harness 只需要 `hardware.launch.py` 在跑,不再 import `agi@g2_robot` 的任何包。
+
+除了 import 路径,只改了一处:`whole_body.py` 的 `WholeBody.goto` 拆成了 `plan()` 和 `run()` 两步(`goto` 仍然存在,等于 plan + run),这样 harness 能在规划和执行之间让人确认;`run()` 发现机器人离开了规划起点就不执行。
 
 ## 这里的文件
+
+- `goal_pose.py`:手臂终点姿态的三种来源(保持 / 三角函数舒适姿态 `ComfortPose` / 只管位置 `free_goal`),见 [docs/goal_pose.md](../../docs/goal_pose.md)
 
 | 文件 | 作用 | 来源 |
 |---|---|---|

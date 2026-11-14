@@ -52,3 +52,8 @@ docker/.ctx/
 .env
 traces/*.jsonl
 traces/last_*.jpg
+traces/sam3_*.jpg
+traces/sam3/
+photos/
+# GDK glog 日志(harness/backends/gripper_gdk.py 把 GLOG_log_dir 指到 logs/gdk/)
+logs/

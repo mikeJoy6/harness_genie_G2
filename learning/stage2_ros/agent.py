@@ -8,9 +8,9 @@
 import json
 import sys
 
-import llm
+import deepseek_api
 from ros_io import RosIO
-from tools import TOOLS, make_handlers
+from llm_tools import TOOLS, make_handlers
 
 SYSTEM = ("你是智元 G2 机器人的助手,只能通过工具了解机器人状态,不能让机器人运动。"
           "没有合适的工具时,直接说明做不到。回答时给出数字和单位。")
@@ -29,7 +29,7 @@ def run_tool(handlers, tool_name, raw_args):
 def run_agent(key, handlers, task, max_steps=6):
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task}]
     for step in range(max_steps):
-        reply = llm.chat(key, messages, TOOLS)
+        reply = deepseek_api.chat(key, messages, TOOLS)
         messages.append(reply)
         if not reply.get("tool_calls"):
             return reply["content"]
@@ -43,10 +43,11 @@ def run_agent(key, handlers, task, max_steps=6):
 
 
 def main():
-    key = llm.read_key()
-    with RosIO("learning_agent") as ros:
-        ros.wait_ready()
-        handlers = make_handlers(ros)
+    key = deepseek_api.read_key()
+    robot_io = RosIO("learning_agent")   # 连接 ROS
+    try:
+        robot_io.wait_ready()
+        handlers = make_handlers(robot_io)
 
         if len(sys.argv) > 1:                 # 命令行带了问题:只问这一句
             print("大模型:", run_agent(key, handlers, " ".join(sys.argv[1:])))
@@ -62,6 +63,8 @@ def main():
                 return
             if task:
                 print("大模型:", run_agent(key, handlers, task))
+    finally:
+        robot_io.close()                 # 不管怎么退出,最后都断开 ROS
 
 
 if __name__ == "__main__":

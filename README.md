@@ -1,123 +1,144 @@
 # G2 Robot Harness
 
+**English** | [中文](README.zh-CN.md)
+
 ![Python](https://img.shields.io/badge/Python-3.10-3776AB)
 ![ROS 2](https://img.shields.io/badge/ROS%202-Humble-22314E)
 ![Robot](https://img.shields.io/badge/Robot-AgiBot%20G2-555555)
 ![LLM](https://img.shields.io/badge/LLM-DeepSeek-4D6BFE)
+![Vision](https://img.shields.io/badge/Vision-SAM%203-8A2BE2)
 
-用自然语言指挥智元 G2 人形机器人。大模型负责理解指令、选择技能;视觉定位、运动规划和安全检查全部由程序完成,模型无法直接控制关节或坐标。
+Control an AgiBot G2 humanoid robot with natural language. An LLM interprets the command and chooses which skills to call. Object detection, motion planning and safety checks are done by ordinary code, so the model never outputs joint angles or absolute coordinates.
 
+<!-- TODO: docs/media/demo.gif (see docs/media/SHOT_LIST.md, item 1)
 <p align="center">
-  <img src="docs/media/demo.gif" width="720" alt="演示:指令下达后,左臂末端移到物体正上方">
+  <img src="docs/media/demo.gif" width="720" alt="Demo: 'look down, find the mouse, pick it up'">
 </p>
+-->
 
-<p align="center">
-  <img src="docs/media/scene.jpg" width="49%" alt="实验场景">
-  <img src="docs/media/terminal.png" width="49%" alt="运行时的工具调用">
-</p>
+## Highlights
 
-## 功能
+- **Natural-language tasks.** For a command like *"look down, find the mouse and pick it up"*, the model decides which tools to call and in what order.
+- **Open-vocabulary object finding.** Head RGB-D camera plus a local SAM 3 service. Objects are segmented by name, located in `base_link`, and given handles such as `mouse_1` or `phone_2`. Later tools refer to objects by handle only.
+- **Collision-aware arm planning.** The planner tries a Cartesian straight line first, then a `via_then_rrt` detour. If the target is out of reach, the robot leans or turns its waist and plans again. Every path is checked against whole-body self-collision and the octomap point cloud.
+- **A fixed two-stage chain for contact.** `touch_object` plans a fully collision-checked path to a pre-contact point it has already verified. Only the last few centimetres move slowly with the point-cloud check off; self-collision is still checked. See [docs/touch_chain.md](docs/touch_chain.md) (in Chinese).
+- **Joint-space motion** for waist, head and both arms. If a direct move would collide, it goes through a recorded waypoint pose or a joint-space RRT.
+- **Gripper control** for the right-hand gripper, through the robot's GDK servo interface.
+- **Traceable runs.** Every model reply, tool call and result is logged to `traces/`.
 
-- **自然语言指令**:如“左手抵达绿色青椒上空”,模型自行决定调用哪些工具、按什么顺序。
-- **按颜色定位物体**:头部 RGBD 相机 + HSV 分割 + 多帧融合,输出 `base_link` 下的坐标,并发布 TF `target_object`。
-- **任意颜色可扩展**:预置红、橙、黄、绿、蓝、紫;特殊颜色在画面上点选即可加入,无需改代码。
-- **同色多物体**:默认选择离左臂末端最近的一个。
-- **直线优先,绕障兜底**:积分笛卡尔直线规划,失败时自动改用 `via_then_rrt` 绕障规划;全程构型连续,带整机自碰撞检查。
-- **依赖少**:运控、绕障、相机代码都在本仓库内,运行时只需要 `hardware.launch.py`(JTC + MoveIt)。
-- **可追溯**:每条指令的模型回复、工具调用和结果都写入 `traces/`。
-
-<p align="center">
-  <img src="docs/media/detection.jpg" width="49%" alt="颜色识别结果">
-  <img src="docs/media/hsv_pick.png" width="49%" alt="点选取色工具">
-</p>
-
-## 工作原理
+## How it works
 
 ```mermaid
 flowchart LR
-    U[用户指令] --> L[Agent 循环]
+    U[User command] --> L[Agent loop]
     L <--> M[DeepSeek]
-    L --> G[Gateway<br/>坐标计算 · 安全检查 · 人工确认]
-    G --> R[ROS Backend]
-    R --> V[头部 RGBD<br/>颜色定位]
-    R --> A[ArmMotion<br/>直线 / via_then_rrt 绕障 · 自碰撞 · JTC]
+    L --> G[Gateway<br/>coordinate math · safety checks]
+    G --> R[ROS backend]
+    R --> V[Head RGB-D<br/>SAM 3 object finding]
+    R --> A[ArmMotion<br/>line / via_then_rrt · collision check · JTC]
+    R --> W[WholeBody<br/>waist / head / arm joints · waypoint / RRT · 4 JTCs]
+    R --> H[Gripper<br/>GDK servo]
     A --> G2[AgiBot G2]
+    W --> G2
+    H --> G2
 ```
 
-模型只能看到三个工具:
+Tools exposed to the model:
 
-| 工具 | 作用 | 是否运动 |
+| Tool | What it does | Moves the robot |
 |---|---|---|
-| `locate_object(color)` | 按颜色定位物体 | 否 |
-| `get_left_end_pose()` | 读取 `arm_l_end_link` 位置 | 否 |
-| `approach_object(standoff_cm)` | 左臂末端移到物体正上方 | 是 |
+| `get_robot_state()` | Read waist, head and arm joints and both end-effector poses | No |
+| `find_objects(query)` | Segment objects by English name with SAM 3; handles are numbered by distance | No |
+| `look_at_object(object_id)` | Turn the head to center the object | Yes |
+| `approach_object(object_id, standoff_cm, arm)` | Move the gripper tip above the object | Yes |
+| `point_at_object(object_id, arm)` | Point the gripper at the object (rotation only) | Yes |
+| `touch_object(object_id, arm)` | Bring the gripper tip into contact (high-five, fist bump, reach down to a surface) | Yes |
+| `move_arm_end(arm, offset_cm, rotate_deg)` | Relative translation / rotation of the end effector | Yes |
+| `move_joints(group, deltas_deg / angles_deg)` | Rotate waist / head / left arm / right arm joints | Yes |
+| `go_to_pose(name, groups)` | Go to a recorded whole-body pose from `configs/poses.yaml` | Yes |
+| `gripper(arm, action)` | Open / close the gripper | Yes |
+| `take_photo(camera)` | Save a head-camera photo to `photos/` | No |
+| `wait(seconds)` | Pause between steps | No |
 
-`approach_object` 没有坐标参数,目标点由 Gateway 根据最近一次定位结果计算。
+The model cannot send absolute coordinates. Targets for `approach_object` and `touch_object` are computed by the Gateway from the object handle, and `move_arm_end` only accepts relative offsets. On the real robot, a motion runs automatically once planning succeeds. Pass `--confirm` to require pressing `y` before each motion.
 
+<!-- TODO: docs/media/sam3.png and docs/media/terminal.gif (see docs/media/SHOT_LIST.md, items 2 and 3)
 <p align="center">
-  <img src="docs/media/rviz.png" width="720" alt="RViz 中的 target_object 与 arm_l_end_link">
+  <img src="docs/media/sam3.png" width="49%" alt="SAM 3 masks with object handles">
+  <img src="docs/media/terminal.gif" width="49%" alt="Tool calls during a run">
 </p>
+-->
 
-## 安全设计
+## Safety
 
-| 机制 | 说明 |
+| Mechanism | Details |
 |---|---|
-| 人工确认 | 真机每次运动前打印目标和规划,输入 `y` 才执行 |
-| 只规划模式 | `--plan-only` 完整走一遍流程,绝不发送运动 |
-| 悬停距离 | 末端停在物体上方 18~40cm,默认 25cm,工具不会接触物体 |
-| 范围限制 | 工作空间、单次移动距离、末端速度均有上限 |
-| 防穿桌 | 整条规划路径上,末端都必须比物体高 13cm 以上 |
-| 定位时效 | 定位结果 30s 后作废,定位失败会清除旧目标 |
-| 次数限制 | 每条指令最多运动一次 |
+| Plan printout | Every real motion prints its target and plan first. Set `confirm_motion: true` or pass `--confirm` to require `y` |
+| Plan-only mode | `--plan-only` runs the whole pipeline but never sends a motion |
+| Only `touch_object` may make contact | All other arm motions are fully checked against the point cloud and fail honestly. `touch_object` skips the cloud check only for the final segment (≤ 30 cm, 0.03 m/s) |
+| Standoff | `approach_object` stops 3–30 cm above the object (default 12 cm), and the whole path must stay above it |
+| Limits | Workspace box, per-move travel distance and end-effector speed are capped |
+| Detection expiry | `find_objects` results expire after 120 s |
+| Motion budget | At most 8 motions per command, gripper actions included |
 
-当前版本只检查机器人自碰撞,不包含环境避障,运行时需有人值守急停。
+Collision checking only knows about what MoveIt knows about. Always keep someone at the emergency stop.
 
-## 目录结构
+## Quick start
+
+```bash
+source /opt/ros/humble/setup.bash
+cd robot_harness
+
+# Offline tests (fake robot; ROS-dependent tests are skipped if ROS is missing)
+python3 -m pytest tests -q
+
+# Fake robot, no hardware (its fake scene contains two phones)
+python3 scripts/run_task.py "find the phone and touch it"
+
+# Real robot, plan only (requires hardware.launch.py and the SAM 3 service)
+python3 scripts/run_task.py --real --plan-only "低头找鼠标,拿起来"
+```
+
+Put your DeepSeek API key in `.env` at the repository root as `DEEPSEEK_API_KEY=...`. All runnable commands are in [`run.txt`](run.txt) and [`devlog.md`](devlog.md).
+
+## Repository layout
 
 ```text
 robot_harness/
-├── harness/               核心代码
-│   ├── loop.py            Agent 循环:问模型 → 执行工具 → 返回结果
-│   ├── llm.py             DeepSeek 接口(标准库 HTTP)
-│   ├── gateway.py         模型与机器人之间的关卡:坐标计算与安全检查
-│   ├── colors.py          颜色表读写、由采样像素计算 HSV 范围
-│   ├── tools/             给模型看的工具定义
-│   ├── backends/          执行层
-│   │   ├── ros.py         真机:相机、TF、运控
-│   │   ├── fake.py        假机器人,用于测试
-│   │   └── color_object.py  HSV 分割与多帧融合
-│   ├── motion/            运控与绕障规划(ArmMotion、via_then_rrt、全身位姿)
-│   └── perception/        头部 RGBD:取帧、深度转 3D、标定
-├── configs/               模型、运动、视觉参数,颜色表,录好的全身位姿
-├── scripts/               入口:run_task.py 运行指令,goto_pose.py 全身位姿,hsv_pick.py 点选取色
-├── tests/                 离线测试:harness 逻辑(不需要 ROS)、运控与绕障(需要 ROS)
-├── traces/                运行记录与最近一次识别画面
-├── scenarios/             模型评测用例(规划中)
-├── fixtures/              真机录制的测试数据(规划中)
-├── reforence/             参考资料
-├── docs/
-│   ├── harness_guide.md   一篇读懂全部代码,含动手练习
-│   └── media/             README 图片
-├── run.txt                常用命令
-└── devlog.md              开发日志
+├── harness/               core code
+│   ├── loop.py            agent loop: ask model → run tools → return results
+│   ├── llm.py             DeepSeek client (standard-library HTTP)
+│   ├── gateway.py         checkpoint between model and robot: coordinates and safety
+│   ├── tools/             tool schemas shown to the model
+│   ├── backends/          execution layer
+│   │   ├── ros.py         real robot: planning chains (plan_arm_to / plan_touch), execution
+│   │   ├── fake.py        fake robot for tests
+│   │   └── gripper_gdk.py gripper (GDK)
+│   ├── motion/            motion control and planning (ArmMotion, via_then_rrt, WholeBody)
+│   └── perception/        head RGB-D, SAM 3 client, head aiming
+├── configs/               model, motion and vision parameters; recorded poses
+├── scripts/               entry points: run_task.py, goto_pose.py, sam3_live.py, ...
+├── tests/                 offline tests: harness logic (no ROS), motion and touch chain (ROS)
+├── learning/              step-by-step exercises (LLM calls → ROS)
+├── docs/                  design notes, indexed in docs/index.md
+├── run.txt                common commands
+└── devlog.md              development log
 ```
 
-每个文件夹都有自己的 `README.md`,说明其中文件的作用和联动关系。
+Every folder has its own `README.md`. Design notes, the devlog and code comments are written in Chinese.
 
-## 环境
+## Requirements
 
 - Ubuntu 22.04 · ROS 2 Humble · Python 3.10
-- ROS 包:`rclpy`、`tf2_ros`、`urdf_parser_py`、`python3-pykdl`,以及 `moveit_msgs`、`control_msgs` 等消息
-- Python 包:`numpy`、`scipy`、`opencv-python`、`PyYAML`
-- 运行时只需要一个外部进程:`agi@g2_robot` 的 `hardware.launch.py`(ros2_control + JTC + MoveIt `move_group`),以及机器人 GDK 发布的头部相机话题
-- DeepSeek API key,填写在项目根目录的 `.env`
+- ROS packages: `rclpy`, `tf2_ros`, `urdf_parser_py`, `python3-pykdl`, plus `moveit_msgs`, `control_msgs` and other message packages
+- Python packages: `numpy`, `scipy`, `opencv-python`, `PyYAML`
+- External processes: `hardware.launch.py` from `agi@g2_robot` (ros2_control + JTC + MoveIt `move_group` + point cloud) and a local SAM 3 service ([docs/sam3_service.md](docs/sam3_service.md))
+- A DeepSeek API key
 
-启动与使用命令见 [`run.txt`](run.txt),开发过程见 [`devlog.md`](devlog.md),代码导读见 [`docs/harness_guide.md`](docs/harness_guide.md)。
+## Known limitations
 
-## 已知限制
-
-- 只控制左臂,只移动到物体上方,不包含抓取。
-- 没有环境避障,桌面等障碍物不在碰撞检查中。
-- 颜色定位依赖光照;同色物体距离手臂相近时会拒绝执行。
-- 可达范围受腰部姿态影响,目标过远时规划会失败。
-- `harness/motion/` 与 `harness/perception/` 是 `agi@g2_robot` 的副本,原项目更新后需要手动同步。
+- Grasping is still basic. The gripper points down, descends to the object's top surface and closes, which only works for blocks and similar objects. Shape-aware grasp poses (bottles, mugs with handles) are planned.
+- Only the right hand has a gripper.
+- Collision checking covers the robot itself, the octomap, and collision objects added to the planning scene. When launched with `use_head_cloud:=false` there is no octomap, so the table is not in the collision check.
+- Reach depends on waist posture, so planning to far targets can fail.
+- Parts of `harness/motion/` and `harness/perception/` are copied from `agi@g2_robot` and must be synced by hand.

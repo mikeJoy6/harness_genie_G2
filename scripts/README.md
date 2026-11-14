@@ -9,9 +9,13 @@
 | 文件 | 作用 |
 |---|---|
 | `run_task.py` | 启动 harness |
-| `hsv_pick.py` | 在头部画面上点选颜色,存入 `configs/colors.yaml` |
 | `motion_cli.py` | 手臂交互命令行(`move`、`line`、`goto`、`detour`),复制自 `agi@g2_robot` |
-| `goto_pose.py` | 全身移到 `configs/poses.yaml` 里录好的位姿,带碰撞检查和人工确认 |
+| `gripper_cli.py` | 单独测夹爪:`status` / `open` / `close`(走 GDK) |
+| `record_pose.py` | 把当前关节角录进 `configs/poses.yaml`;`--mirror-left` 生成左臂对称位姿 |
+| `goto_pose.py` | 全身移到 `configs/poses.yaml` 里录好的位姿,带碰撞检查,默认直接执行(`--confirm` 按 y) |
+| `sam3_live.py` | 头部相机实时 + SAM 3 分割,终端里随时换物体名([说明](../docs/sam3_service.md#实时分割sam3_livepy)) |
+| `sam3_test_image.py` | 拿一张图测 SAM 3 服务 |
+| `capture_head.py` | 录头部彩色 + 深度 + 头部位姿到 `recordings/` |
 
 ## 和哪里联动
 
@@ -46,14 +50,6 @@ python3 scripts/run_task.py --real
 source ~/agi@g2_robot/env_g2.sh
 python3 scripts/goto_pose.py look
 python3 scripts/goto_pose.py look --groups head
-```
-
-新增一种颜色(左键点物体,`s` 保存,`q` 退出):
-
-```bash
-source ~/agi@g2_robot/env_g2.sh
-python3 scripts/hsv_pick.py --name 青椒
-python3 scripts/run_task.py --real --plan-only "左手抵达青椒上空"
 ```
 
 真机启动步骤见项目根目录 `run.txt`。

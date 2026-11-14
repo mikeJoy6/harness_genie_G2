@@ -3,7 +3,7 @@
 TF 里的坐标就是 robot_state_publisher 用这套方法算出来的。这里自己算一遍,和 TF 对比。
 
 单独运行(不需要机器人):
-    python3 learning/stage2_ros/kinematics.py
+    python3 learning/stage2_ros/g2_kinematics.py
 """
 import numpy as np
 import urdf_parser_py.xml_reflection.core as urdf_core
@@ -96,13 +96,13 @@ def rotation_diff_deg(R1, R2):
 
 if __name__ == "__main__":
     # 离线自测:读 URDF 文件,所有关节都是 0 时,左臂末端在哪
-    import config
+    import g2_config
 
-    robot = load_urdf(config.URDF_FILE.read_text(encoding="utf-8"))
+    robot = load_urdf(g2_config.URDF_FILE.read_text(encoding="utf-8"))
     print(f"URDF:{len(robot.links)} 个 link,{len(robot.joints)} 个 joint,根是 {robot.get_root()}")
-    print(f"\n{config.BASE_FRAME} → {config.LEFT_END} 经过的 joint:")
-    for j in chain_joints(robot, config.BASE_FRAME, config.LEFT_END):
+    print(f"\n{g2_config.BASE_FRAME} → {g2_config.LEFT_END} 经过的 joint:")
+    for j in chain_joints(robot, g2_config.BASE_FRAME, g2_config.LEFT_END):
         print(f"  {j.name:<24} {j.type:<9} 轴 {j.axis}")
     zeros = {j.name: 0.0 for j in robot.joints}
-    T = fk(robot, config.BASE_FRAME, config.LEFT_END, zeros)
+    T = fk(robot, g2_config.BASE_FRAME, g2_config.LEFT_END, zeros)
     print(f"\n全部关节为 0 时,左臂末端 xyz = {np.round(T[:3, 3], 4).tolist()} 米")

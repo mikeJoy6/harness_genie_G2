@@ -9,7 +9,7 @@
 source ~/agi@g2_robot/env_g2.sh
 ros2 launch genie_robot_agibot_g2_hardware hardware.launch.py end_effector:=true use_head_cloud:=false
 
-# 终端 2:移到 look 位姿(全身会动,先挪开桌子;打印关节变化后输入 y 才动,Ctrl-C 取消)
+# 终端 2:移到 look 位姿(全身会动,先挪开桌子;打印关节变化后直接执行,加 --confirm 才问 y;Ctrl-C 取消)
 source ~/agi@g2_robot/env_g2.sh
 cd ~/robot_harness
 python3 scripts/goto_pose.py --list
@@ -25,7 +25,7 @@ source ~/agi@g2_robot/env_g2.sh
 cd ~/robot_harness
 python3 scripts/motion_cli.py
 #   [left]> pose
-#   [left]> move 0 0 0.20        打印规划后输入 y 才动
+#   [left]> move 0 0 0.20        打印规划后直接执行(启动时加 --confirm 才问 y)
 #   [left]> quit
 
 
@@ -38,9 +38,15 @@ cd ~/robot_harness
 # 只规划,机器人不动
 python3 scripts/run_task.py --real --plan-only "左手抵达红色积木上空"
 
-# 真机执行,每次运动前输入 y 确认
+# 真机执行(规划通过后自动执行;加 --confirm 每次按 y)
 python3 scripts/run_task.py --real "左手抵达红色积木上空"
 python3 scripts/run_task.py --real "左手抵达绿色青椒上空"
+
+# 腰 / 头 / 双臂(新工具第一次上真机,先用 --plan-only 看规划,再去掉)
+python3 scripts/run_task.py --real --plan-only "左手往上抬 10 厘米"
+python3 scripts/run_task.py --real --plan-only "右手往前伸 5 厘米"
+python3 scripts/run_task.py --real --plan-only "头往左转 20 度"
+python3 scripts/run_task.py --real --plan-only "只把头回到 look 位姿"
 
 # 交互模式:一行一条指令,q 退出
 python3 scripts/run_task.py --real
@@ -50,22 +56,63 @@ python3 scripts/run_task.py "左手抵达红色积木上空"
 
 
 
-# ── 新增颜色 ─────────────────────────────────────────
 
-# 实时头部画面:左键点物体(亮面暗面都点),c 清空,s 保存,q 不保存
+
+
+
+# ── SAM 3 实时分割(说明 docs/sam3_service.md)───────
+
+# 终端 1:模型服务(Python 3.12,常驻显存约 3.4GB)
+cd ~/sam3_service && .venv/bin/python server.py
+
+# 终端 2:实时画面,之后在这个终端输入 "green block, pen" 回车换物体,空行清空,q 退出
 source ~/agi@g2_robot/env_g2.sh
-python3 scripts/hsv_pick.py --name 紫色杯子
+cd ~/robot_harness && python3 scripts/sam3_live.py "red block" "pen"
 
-# 用图片取色 / 不开窗口直接采样一个像素
-python3 scripts/hsv_pick.py --name 紫色杯子 --image traces/last_object.jpg
-python3 scripts/hsv_pick.py --name 紫色杯子 --image traces/last_object.jpg --pixel 320,200
+# 录 5 帧头部彩色+深度(机器人关机前留素材),单张图离线测
+python3 scripts/capture_head.py
+python3 scripts/sam3_test_image.py recordings/head_20261112_015829/color_04.png "red block" "pen"
+
+# 看向最近的手机(SAM 3 服务要开着;先只规划,确认后去掉 --plan-only)
+cd ~/robot_harness
+python3 scripts/run_task.py --real --plan-only "看向最近的手机"
+python3 scripts/run_task.py --real "看向最近的手机"
+# 分割日志:最新一次的画面、掩码、结果
+ls -t traces/sam3 | head
+xdg-open traces/sam3/$(ls -t traces/sam3 | head -1)/overlay.jpg
+
+# 关掉模型服务
+pkill -f "\.venv/bin/python server.py"
+
+
+
+# ── 录位姿 / 左右对称 ─────────────────────────────────
+
+# 录当前右臂,生成左臂对称位姿 right_now_mirror(机器人不动);再让左臂过去
+source ~/agi@g2_robot/env_g2.sh
+python3 scripts/record_pose.py right_now --groups right_arm --mirror-left
+python3 scripts/goto_pose.py right_now_mirror
+
+# 当前全身姿态录成“初始位姿”;以后对 harness 说“抵达初始位姿”
+python3 scripts/record_pose.py init --note 初始位姿 --force
+python3 scripts/run_task.py --real "抵达初始位姿"
+
+
+
+# ── 夹爪(走 GDK,说明 docs/gripper.md)──────────────────
+
+source ~/agi@g2_robot/env_g2.sh
+source ~/.cache/agibot/app/env.sh
+python3 scripts/gripper_cli.py status                      # 只读
+python3 scripts/gripper_cli.py open --arm right            # 直接执行
+python3 scripts/run_task.py --real "你先打开右手夹爪过5秒再闭合"
 
 
 
 # ── 查看结果 ─────────────────────────────────────────
 
-# 最近一次识别画面:绿框 = 选中的目标,黄框 = 所有同色候选
-xdg-open traces/last_object.jpg
+# 最近一次 SAM 3 分割:每次 find_objects 存一个文件夹(画面、掩码叠加、深度、结果)
+ls -t traces/sam3 | head -3
 
 # 最近一次运行记录
 python3 -c "import json,glob; [print(json.loads(l)['kind'], json.dumps(json.loads(l)['data'], ensure_ascii=False)[:200]) for l in open(sorted(glob.glob('traces/*.jsonl'))[-1], encoding='utf-8')]"

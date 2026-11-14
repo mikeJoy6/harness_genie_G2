@@ -2,7 +2,7 @@
 
 这篇文档从零讲清楚这个项目:harness 是什么、一条指令在代码里怎么走、每个文件做什么、为什么这么写。最后一章带你亲手写下一个工具。
 
-> 行号以 2026-11-09 的版本为准。链接格式 `文件#L行号`,在 VS Code 的 Markdown 预览和 GitHub 上点击即可跳转。改过代码后行号可能偏移,按函数名找即可。
+> 行号以 2026-11-11 的版本为准。链接格式 `文件#L行号`,在 VS Code 的 Markdown 预览和 GitHub 上点击即可跳转。改过代码后行号可能偏移,按函数名找即可。
 
 ## 目录
 
@@ -12,7 +12,7 @@
 4. [入口:run_task.py](#4-入口run_taskpy)
 5. [循环:loop.py](#5-循环looppy)
 6. [模型接口:llm.py](#6-模型接口llmpy)
-7. [工具说明书:tools/objects.py](#7-工具说明书toolsobjectspy)
+7. [工具说明书:tools/](#7-工具说明书tools)
 8. [关卡:gateway.py](#8-关卡gatewaypy)
 9. [执行层:backends/](#9-执行层backends)
 10. [颜色视觉:color_object.py 与 colors.py](#10-颜色视觉color_objectpy-与-colorspy)
@@ -34,7 +34,7 @@ Harness 是包在模型外面的那层程序,负责四件事:
 
 | 职责 | 本项目里的实现 |
 |---|---|
-| 告诉模型能做什么 | [harness/tools/objects.py](../harness/tools/objects.py):三个工具的名字、说明和参数 |
+| 告诉模型能做什么 | [harness/tools/](../harness/tools/):工具的名字、说明和参数(`objects.py` 物体,`motion.py` 运动) |
 | 把模型的话变成动作 | [harness/loop.py](../harness/loop.py) 解析模型回复,[harness/gateway.py](../harness/gateway.py) 执行 |
 | 拦住危险动作 | [harness/gateway.py](../harness/gateway.py) 里的检查,加上人工按 `y` |
 | 把结果告诉模型 | [harness/loop.py](../harness/loop.py) 把工具结果追加进对话 |
@@ -71,7 +71,7 @@ sequenceDiagram
     M-->>L: 调用 approach_object()
     L->>G: execute(...)
     G->>G: 算目标点 + 7 项检查
-    G->>R: plan_left_to(目标)
+    G->>R: plan_arm_to("left", 目标)
     G->>U: 打印规划,等待 y
     U-->>G: y
     G->>R: execute(plan)
@@ -91,9 +91,9 @@ sequenceDiagram
                  "function": {"name": "locate_object", "arguments": "{\"color\": \"red\"}"}}]}
 ```
 
-注意 `arguments` 是**字符串**,里面才是 JSON,所以要 `json.loads` 一次,见 [harness/loop.py#L45](../harness/loop.py#L45)。
+注意 `arguments` 是**字符串**,里面才是 JSON,所以要 `json.loads` 一次,见 [harness/loop.py#L46](../harness/loop.py#L46)。
 
-**程序执行**:[gateway.py#L32](../harness/gateway.py#L32) 的 `_locate` 查颜色表,调用 [ros.py#L84](../harness/backends/ros.py#L84) 的 `locate_object`,头部相机取 5 帧,得到:
+**程序执行**:[gateway.py#L65](../harness/gateway.py#L65) 的 `_locate` 查颜色表,调用 [ros.py#L92](../harness/backends/ros.py#L92) 的 `locate_object`,头部相机取 5 帧,得到:
 
 ```json
 {"ok": true, "frame": "base_link", "tf": "target_object", "color": "red",
@@ -114,9 +114,9 @@ sequenceDiagram
  "plan": "积分笛卡尔直线 32.6cm:57 个轨迹点,8.5s,……"}
 ```
 
-**第 4 轮**:模型看到 `executed: true`,不再调用工具,用文字总结。循环在 [loop.py#L27-L28](../harness/loop.py#L27-L28) 结束。
+**第 4 轮**:模型看到 `executed: true`,不再调用工具,用文字总结。循环在 [loop.py#L28-L29](../harness/loop.py#L28-L29) 结束。
 
-有时模型会**在一轮里同时调用两个工具**(比如一起调 `locate_object` 和 `get_left_end_pose`),这是正常的,[loop.py#L30](../harness/loop.py#L30) 的 `for` 循环会依次执行。
+有时模型会**在一轮里同时调用两个工具**(比如一起调 `locate_object` 和 `get_left_end_pose`),这是正常的,[loop.py#L31](../harness/loop.py#L31) 的 `for` 循环会依次执行。
 
 ---
 
@@ -127,16 +127,21 @@ sequenceDiagram
 | [scripts/run_task.py](../scripts/run_task.py) | 入口:读配置、组装、启动 | 下面所有 | 你 |
 | [harness/loop.py](../harness/loop.py) | Agent 循环 | 无(只接收 llm 和 gateway 对象) | run_task、测试 |
 | [harness/llm.py](../harness/llm.py) | 调 DeepSeek | 标准库 | run_task |
-| [harness/tools/objects.py](../harness/tools/objects.py) | 给模型看的工具定义 | 无 | run_task、测试 |
-| [harness/gateway.py](../harness/gateway.py) | 坐标计算与安全检查 | backend 对象 | run_task、测试 |
-| [harness/backends/ros.py](../harness/backends/ros.py) | 真机执行 | `agi@g2_robot`、ROS | run_task(`--real`) |
+| [harness/tools/objects.py](../harness/tools/objects.py) | 给模型看的物体工具,`make_tools` 汇总全部工具 | tools/motion.py | run_task、测试 |
+| [harness/tools/motion.py](../harness/tools/motion.py) | 给模型看的运动工具 | motion/joints.py | objects.py |
+| [harness/gateway.py](../harness/gateway.py) | 坐标计算与安全检查 | backend 对象、geometry | run_task、测试 |
+| [harness/geometry.py](../harness/geometry.py) | 姿态 rpy 换算 | numpy | gateway |
+| [harness/backends/ros.py](../harness/backends/ros.py) | 真机执行 | harness/motion、harness/perception、ROS | run_task(`--real`) |
+| [harness/motion/](../harness/motion/) | 手臂规划(直线 + via_then_rrt 绕障)、关节组运动(WholeBody + JointDetour) | ROS、MoveIt 服务 | ros.py、goto_pose |
 | [harness/backends/fake.py](../harness/backends/fake.py) | 假机器人 | 无 | run_task、测试 |
 | [harness/backends/color_object.py](../harness/backends/color_object.py) | HSV 分割、多帧融合 | OpenCV、numpy | ros.py、hsv_pick、测试 |
 | [harness/colors.py](../harness/colors.py) | 颜色表读写、采样算范围 | PyYAML、numpy | run_task、hsv_pick、测试 |
 | [scripts/hsv_pick.py](../scripts/hsv_pick.py) | 点选取色 | colors、color_object | 你 |
 | [configs/harness.yaml](../configs/harness.yaml) | 模型、运动、视觉参数 | — | run_task、测试 |
 | [configs/colors.yaml](../configs/colors.yaml) | 颜色表 | — | run_task、hsv_pick |
-| [tests/test_objects.py](../tests/test_objects.py) | 离线测试 | 上面的纯 Python 部分 | pytest |
+| [configs/poses.yaml](../configs/poses.yaml) | 录好的全身位姿 | — | run_task、goto_pose |
+| [tests/test_objects.py](../tests/test_objects.py) | 离线测试:定位、靠近、颜色 | 上面的纯 Python 部分 | pytest |
+| [tests/test_motion_tools.py](../tests/test_motion_tools.py) | 离线测试:手臂 / 关节组 / 位姿运动工具 | 同上 | pytest |
 | `.env` | DeepSeek key,不提交 | — | run_task |
 | `traces/` | 运行记录和识别画面 | — | 你排错时看 |
 
@@ -171,33 +176,37 @@ def load_env(path):
 
 ### 4.2 每条指令的组装
 
-[scripts/run_task.py#L43-L50](../scripts/run_task.py#L43-L50)
+[scripts/run_task.py#L51-L61](../scripts/run_task.py#L51-L61)
 
 ```python
 def run_one(task, llm, backend, cfg, args):
     colors = load_colors(ROOT / "configs/colors.yaml")      # 每条指令重读,取色后不用重启
+    poses = load_poses()                                    # 同上,录了新位姿不用重启
+    # gateway
     gateway = Gateway(backend, cfg["motion"], colors, confirm=ask_user if args.real else None,
-                      plan_only=args.plan_only)
+                      plan_only=args.plan_only, poses=poses)
     trace_path = ROOT / "traces" / f"{time.strftime('%Y%m%d_%H%M%S')}.jsonl"
     with open(trace_path, "w", encoding="utf-8") as trace:
-        answer = run_agent(task, llm, gateway, make_tools(colors), max_steps=cfg["agent"]["max_steps"], trace=trace)
+        answer = run_agent(task, llm, gateway, make_tools(colors, list(poses)),
+                           max_steps=cfg["agent"]["max_steps"], trace=trace)
     print(f"\n机器人助手:{answer}\n[trace] {trace_path}\n", flush=True)
 ```
 
 三个要点:
 
 1. **每条指令新建一个 Gateway**。Gateway 里记着“定位到的目标”和“已经动了几次”,新指令必须从干净状态开始,否则上一条指令的目标可能被沿用。
-2. **颜色表每条指令重读**。用 `hsv_pick.py` 加了新颜色,交互模式下不用重启。
+2. **颜色表和位姿表每条指令重读**。用 `hsv_pick.py` 加了新颜色、或在 `poses.yaml` 里录了新位姿,交互模式下不用重启。
 3. `confirm=ask_user if args.real else None`:只有真机才要求按 `y`,假机器人直接执行。
 
 ### 4.3 选择真机还是假机器人
 
-[scripts/run_task.py#L64-L68](../scripts/run_task.py#L64-L68)
+[scripts/run_task.py#L75-L80](../scripts/run_task.py#L75-L80)
 
 ```python
     if args.real:
         from harness.backends.ros import RosBackend    # 放这里,假机器人模式才不需要 ROS
-        backend = RosBackend(cfg["vision"], cfg["motion"]["speed_m_s"], debug_dir=ROOT / "traces")
+        poses = {name: pose["joints"] for name, pose in load_poses().items()}   # 关节绕行时的中转候选
+        backend = RosBackend(cfg["vision"], cfg["motion"]["speed_m_s"], debug_dir=ROOT / "traces", poses=poses)
     else:
         backend = FakeBackend()
 ```
@@ -212,13 +221,14 @@ def run_one(task, llm, backend, cfg, args):
 
 ### 5.1 系统提示词
 
-[harness/loop.py#L4-L9](../harness/loop.py#L4-L9)
+[harness/loop.py#L4-L10](../harness/loop.py#L4-L10)
 
 ```python
 SYSTEM = """你是智元 G2 人形机器人的任务助手,只能通过提供的工具操作机器人。
-用户要求左臂末端靠近某个物体时,根据物体的颜色选择 color,依次调用 locate_object、get_left_end_pose、approach_object。
-坐标都由工具计算,不要自己计算或编造。
-用户没有要求运动时,不要调用 approach_object。
+用户要求手臂末端靠近某个物体时,根据物体的颜色选择 color,依次调用 locate_object、get_left_end_pose、approach_object。
+用户要求移动手臂末端(上抬、前伸、转手腕等)时用 move_arm_end;转头、转腰、转某个关节用 move_joints;回到录好的姿势用 go_to_pose。
+不知道当前状态时先调用 get_robot_state。物体坐标都由工具计算,不要自己编造。
+用户没有要求运动时,不要调用会让机器人运动的工具。
 工具失败时,如实告诉用户失败原因,不要声称成功,也不要反复重试同一个失败的运动。
 只有工具返回 executed 为 true,才能说机器人已经移动。"""
 ```
@@ -227,7 +237,7 @@ SYSTEM = """你是智元 G2 人形机器人的任务助手,只能通过提供的
 
 ### 5.2 对话结构
 
-[harness/loop.py#L18](../harness/loop.py#L18)
+[harness/loop.py#L19](../harness/loop.py#L19)
 
 ```python
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": task}]
@@ -246,7 +256,7 @@ SYSTEM = """你是智元 G2 人形机器人的任务助手,只能通过提供的
 
 ### 5.3 主循环
 
-[harness/loop.py#L21-L39](../harness/loop.py#L21-L39)
+[harness/loop.py#L22-L40](../harness/loop.py#L22-L40)
 
 ```python
     for _ in range(max_steps):
@@ -280,7 +290,7 @@ SYSTEM = """你是智元 G2 人形机器人的任务助手,只能通过提供的
 
 ### 5.4 错误不崩溃,交给模型
 
-[harness/loop.py#L42-L50](../harness/loop.py#L42-L50)
+[harness/loop.py#L43-L51](../harness/loop.py#L43-L51)
 
 ```python
 def _execute(call, gateway):
@@ -356,11 +366,24 @@ def _execute(call, gateway):
 
 ---
 
-## 7. 工具说明书:tools/objects.py
+## 7. 工具说明书:tools/
 
 模型看不到你的代码,**它只能看到这里写的名字、说明和参数**。说明写得好不好,直接决定模型选得对不对。
 
-[harness/tools/objects.py#L4-L7](../harness/tools/objects.py#L4-L7)
+工具分两个文件:物体相关的在 `objects.py`,运动相关的在 `motion.py`。`make_tools` 把两边合起来,交给 `loop.py`:
+
+[harness/tools/objects.py#L12-L13](../harness/tools/objects.py#L12-L13)
+
+```python
+def make_tools(color_names, pose_names=()):
+    return _object_tools(color_names) + make_motion_tools(pose_names)
+```
+
+`pose_names` 是 `configs/poses.yaml` 里的位姿名。没有录位姿时,`go_to_pose` 这个工具就不会出现。
+
+### 7.1 格式
+
+[harness/tools/objects.py#L6-L9](../harness/tools/objects.py#L6-L9)
 
 ```python
 def _tool(name, description, properties=None, required=()):
@@ -371,7 +394,9 @@ def _tool(name, description, properties=None, required=()):
 
 这是 OpenAI 兼容的 function calling 格式,参数部分是标准的 JSON Schema。
 
-[harness/tools/objects.py#L12-L17](../harness/tools/objects.py#L12-L17)
+### 7.2 物体工具
+
+[harness/tools/objects.py#L18-L23](../harness/tools/objects.py#L18-L23)
 
 ```python
         _tool("locate_object",
@@ -386,18 +411,58 @@ def _tool(name, description, properties=None, required=()):
 - “例如青椒选 green”教模型把物体名映射到颜色。
 - “不会让机器人运动”让模型知道这个工具可以放心先调用。
 
-[harness/tools/objects.py#L20-L23](../harness/tools/objects.py#L20-L23)
+[harness/tools/objects.py#L26-L31](../harness/tools/objects.py#L26-L31)
 
 ```python
         _tool("approach_object",
-              "让左臂末端沿直线移动到最近一次定位到的物体正上方。会让机器人运动。",
+              "让手臂末端移动到最近一次定位到的物体正上方,先规划直线,会撞就自动绕障。会让机器人运动。",
               {"standoff_cm": {"type": "number",
-                               "description": "末端停在物体上方多少厘米,可不填;只有用户明确要求时才填"}}),
+                               "description": "末端停在物体上方多少厘米,可不填;只有用户明确要求时才填"},
+               "arm": {"type": "string", "enum": ["left", "right"],
+                       "description": "用哪条手臂,不填就是左臂;只有用户明确要求时才填 right"}}),
 ```
 
-**这个工具没有 x、y、z 参数**。模型无法指定去哪里,只能选择“去不去”和“停多高”。这是整个项目最关键的安全设计。
+**这个工具没有 x、y、z 参数**。模型无法指定去哪里,只能选择“去不去”、“停多高”和“用哪条手臂”。目标点由 gateway 根据定位结果算出来。
 
-> 契约:工具名必须和 [gateway.py#L22-L24](../harness/gateway.py#L22-L24) 的 `handlers` 一字不差。新增工具时两边都要改。
+### 7.3 运动工具
+
+[harness/tools/motion.py#L30-L37](../harness/tools/motion.py#L30-L37)
+
+```python
+        _tool("move_arm_end",
+              "让一条手臂的末端相对当前位置平移和/或转动,姿态不转时保持不变。"
+              "先规划直线,直线会撞就自动规划绕障路径。会让机器人运动,需要用户确认。"
+              "base_link 坐标系:x 向前,y 向左,z 向上。",
+              {"arm": {"type": "string", "enum": ["left", "right"]},
+               "offset_cm": _xyz("相对当前末端的平移 [dx, dy, dz],单位厘米。例如往上抬 10 厘米是 [0, 0, 10]"),
+               "rotate_deg": _xyz("绕 base_link 的 x、y、z 轴依次转多少度,不转就不填")},
+              required=["arm"]),
+```
+
+`move_arm_end` 只接受**相对当前末端**的偏移和转角。“往上抬 10 厘米”就是 `offset_cm: [0, 0, 10]`,模型不需要知道末端现在在哪。说明里写了坐标轴方向,模型才能把“往左”翻译成 +y。
+
+[harness/tools/motion.py#L38-L47](../harness/tools/motion.py#L38-L47)
+
+```python
+        _tool("move_joints",
+              f"让一组关节转动:{GROUP_TEXT}。沿途做整机碰撞检查,会撞就自动绕行。"
+              "deltas_deg 和 angles_deg 只填一个,长度等于这一组的关节数,不动的关节填 0(deltas)或当前角度(angles)。"
+              "会让机器人运动,需要用户确认。",
+              {"group": {"type": "string", "enum": list(GROUPS)},
+               "deltas_deg": {"type": "array", "items": {"type": "number"},
+                              "description": "每个关节在当前角度上再转多少度"},
+               "angles_deg": {"type": "array", "items": {"type": "number"},
+                              "description": "每个关节转到多少度(绝对角度)"}},
+              required=["group"]),
+```
+
+`move_joints` 用于头、腰和单个关节。`deltas_deg` 和 `angles_deg` 二选一:“头往左转 20 度”用增量,“头回正”用目标角。
+
+说明里的 `GROUP_TEXT` 写了**每个关节绕哪根轴、正方向是什么**(来自 URDF)。没写之前,模型把“腰往前弯 90 度”平均分给了腰的 5 个关节,连侧倾和转腰都转了;“头往左转”也转错了关节。写上之后,模型会把前倾放在腰第 3 关节、左转放在头第 1 关节。
+
+`go_to_pose` 只能从录好的位姿名里选(`enum`),见 [motion.py](../harness/tools/motion.py)。
+
+> 契约:工具名必须和 [gateway.py#L50](../harness/gateway.py#L50) 的 `handlers` 一字不差。新增工具时两边都要改。测试 [test_motion_tools.py#L28](../tests/test_motion_tools.py#L28) 会检查这一点。
 
 ---
 
@@ -405,35 +470,42 @@ def _tool(name, description, properties=None, required=()):
 
 模型和机器人之间的唯一通道。所有坐标计算、所有安全检查都在这里。
 
+**碰撞由规划器负责,gateway 只守底线。**手臂规划会做整机自碰撞检查(含 octomap 和 planning scene 里的碰撞体),会撞就自动绕障;关节组运动同样会检查并绕行。gateway 不重复做这些,只挡规划器管不到的事:模型给错数(把度当成弧度、厘米当成米)、目标明显不合理、用户不同意。
+
 ### 8.1 状态
 
-[harness/gateway.py#L11-L19](../harness/gateway.py#L11-L19)
+[harness/gateway.py#L38-L47](../harness/gateway.py#L38-L47)
 
 ```python
-    def __init__(self, backend, motion_cfg, colors, confirm=None, plan_only=False):
+    def __init__(self, backend, motion_cfg, colors, confirm=None, plan_only=False, poses=None):
         self.backend = backend
         self.cfg = motion_cfg
         self.colors = colors            # {颜色名: HSV 范围列表}
         self.confirm = confirm          # confirm(提示文字) → True/False;None 表示不询问
         self.plan_only = plan_only      # True:只规划,绝不发送运动
+        self.poses = poses or {}        # configs/poses.yaml:{位姿名: {"groups": [...], "joints": {...}}}
         self.target = None
         self.target_time = None
         self.moves = 0
 ```
 
-Gateway 记住三件事:最近定位到的目标 `target`、什么时候定位的 `target_time`、这条指令已经动了几次 `moves`。
+Gateway 记住三件事:最近定位到的目标 `target`、什么时候定位的 `target_time`、这条指令已经动了几次 `moves`。`poses` 是录好的位姿,`go_to_pose` 用。
 
 `confirm` 是一个函数而不是写死的 `input()`:真机传 `ask_user`,测试传 `lambda prompt: False` 模拟拒绝。
 
 ### 8.2 分派
 
-[harness/gateway.py#L21-L30](../harness/gateway.py#L21-L30)
+[harness/gateway.py#L49-L62](../harness/gateway.py#L49-L62)
 
 ```python
     def execute(self, name, args):
         handlers = {"locate_object": self._locate,
                     "get_left_end_pose": self._end_pose,
-                    "approach_object": self._approach}
+                    "get_robot_state": self._robot_state,
+                    "approach_object": self._approach,
+                    "move_arm_end": self._move_arm_end,
+                    "move_joints": self._move_joints,
+                    "go_to_pose": self._go_to_pose}
         if name not in handlers:
             return {"ok": False, "error": f"没有工具 '{name}'"}
         try:
@@ -442,12 +514,12 @@ Gateway 记住三件事:最近定位到的目标 `target`、什么时候定位�
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 ```
 
-- 不认识的工具名直接拒绝。模型就算编出一个 `move_joints`,也不会有任何效果。
+- 不认识的工具名直接拒绝。模型就算编出一个不存在的工具,也不会有任何效果。
 - 任何异常都变成 `{"ok": False}` 交给模型,不让程序崩溃。`KeyboardInterrupt` 不是 `Exception` 的子类,所以 Ctrl-C 仍然能停下程序。
 
 ### 8.3 定位
 
-[harness/gateway.py#L32-L41](../harness/gateway.py#L32-L41)
+[harness/gateway.py#L65-L74](../harness/gateway.py#L65-L74)
 
 ```python
     def _locate(self, args):
@@ -462,15 +534,42 @@ Gateway 记住三件事:最近定位到的目标 `target`、什么时候定位�
         return result
 ```
 
-`self.target = None` 这一行很容易漏:先定位红色成功,再定位蓝色失败,如果不清空,接下来的 `approach_object` 会飞向红色物体,而模型以为在靠近蓝色。测试 [tests/test_objects.py#L64](../tests/test_objects.py#L64) 专门覆盖了这个情况。
+`self.target = None` 这一行很容易漏:先定位红色成功,再定位蓝色失败,如果不清空,接下来的 `approach_object` 会飞向红色物体,而模型以为在靠近蓝色。测试 [test_objects.py#L64](../tests/test_objects.py#L64) 专门覆盖了这个情况。
 
 `time.monotonic()` 而不是 `time.time()`:前者不受系统改时间影响,适合算时间差。
 
-### 8.4 靠近:检查链
+### 8.4 所有运动共用的最后一步
 
-`_approach` 是最长的函数,本质是一串“不满足就返回错误”的检查,全部通过才会动。
+[harness/gateway.py#L92-L105](../harness/gateway.py#L92-L105)
 
-[harness/gateway.py#L50-L56](../harness/gateway.py#L50-L56):前置条件
+```python
+    def _no_moves_left(self):
+        if self.moves >= self.cfg["max_moves_per_command"]:
+            return {"ok": False, "executed": False, "error": "这条指令的运动次数已用完,请用户重新下指令"}
+        return None
+
+    def _confirm_and_run(self, plan, prompt, info):
+        """规划和检查都通过之后:只规划模式到此为止;否则问人,按 y 才执行。"""
+        if self.plan_only:
+            return {"ok": True, "executed": False, "note": "只规划模式,机器人没有动", **info}
+        if self.confirm and not self.confirm(f"{prompt}。输入 y 执行:"):
+            return {"ok": False, "executed": False, "error": "用户拒绝了这次运动", **info}
+        self.moves += 1
+        done = self.backend.execute(plan)
+        return {"ok": done["ok"], "executed": done["ok"], "msg": done["msg"], **info}
+```
+
+每个运动工具都是:**自己的检查 → 规划 → `_confirm_and_run`**。最后这一步对所有运动都一样:
+
+- **只规划模式**到这里就返回,机器人绝不会动。
+- **先规划再确认**:你按 `y` 时看到的是已经算好的真实轨迹摘要,而不是一个可能规划失败的意图。
+- `self.moves += 1` 放在执行**之前**:就算执行中途失败,这次也算用掉了,防止模型反复重试。次数是所有运动工具**共用**的。
+
+### 8.5 approach_object:检查链
+
+`_approach` 本质是一串“不满足就返回错误”的检查,全部通过才会动。
+
+[harness/gateway.py#L121-L128](../harness/gateway.py#L121-L128)
 
 ```python
         if self.target is None:
@@ -478,15 +577,16 @@ Gateway 记住三件事:最近定位到的目标 `target`、什么时候定位�
         age = time.monotonic() - self.target_time
         if age > cfg["detection_max_age_s"]:
             return {"ok": False, "error": f"物体位置已过期({age:.0f}s),重新调用 locate_object"}
-        if self.moves >= cfg["max_moves_per_command"]:
-            return {"ok": False, "error": "这条指令的运动次数已用完,请用户重新下指令"}
+        refused = self._no_moves_left()
+        if refused:
+            return refused
 ```
 
-[harness/gateway.py#L58-L64](../harness/gateway.py#L58-L64):参数校验
+[harness/gateway.py#L130-L136](../harness/gateway.py#L130-L136)
 
 ```python
         standoff = args.get("standoff_cm", cfg["standoff_default_m"] * 100)
-        if isinstance(standoff, bool) or not isinstance(standoff, (int, float)):
+        if not _is_number(standoff):
             return {"ok": False, "error": "standoff_cm 必须是数字"}
         standoff = float(standoff) / 100
         if not cfg["standoff_min_m"] <= standoff <= cfg["standoff_max_m"]:
@@ -494,123 +594,226 @@ Gateway 记住三件事:最近定位到的目标 `target`、什么时候定位�
                                           f"{cfg['standoff_max_m'] * 100:.0f} 之间"}
 ```
 
-为什么要单独排除 `bool`?Python 里 `True` 是 `int` 的子类,`isinstance(True, int)` 为真。不排除的话,模型传 `true` 会被当成 1cm。
+`_is_number` 会排除 `bool`:Python 里 `True` 是 `int` 的子类,`isinstance(True, int)` 为真。不排除的话,模型传 `true` 会被当成 1cm。
 
-悬停最小 18cm 是因为末端工具长 12.8cm,`arm_l_end_link` 停在 18cm 时工具尖离物体还有约 5cm。
+悬停最小 18cm 是因为末端工具长 12.8cm,末端停在 18cm 时工具尖离物体还有约 5cm。
 
-[harness/gateway.py#L66-L78](../harness/gateway.py#L66-L78):目标点与几何检查
+[harness/gateway.py#L138-L146](../harness/gateway.py#L138-L146)
 
 ```python
         target = [self.target[0], self.target[1], self.target[2] + standoff]
-        for axis, value in zip("xyz", target):
-            low, high = cfg["workspace"][axis]
-            if not low <= value <= high:
-                return {"ok": False, "error": f"目标 {axis}={value:.3f}m 超出工作范围 [{low}, {high}]"}
+        error = self._check_workspace(arm, target)
+        if error:
+            return {"ok": False, "error": error}
 
-        start = self.backend.left_end_xyz()
+        start = self.backend.end_pose(arm)["xyz_m"]
         travel = math.dist(start, target)
         if travel > cfg["max_travel_m"]:
             return {"ok": False, "error": f"移动距离 {travel:.2f}m 超过上限 {cfg['max_travel_m']}m"}
-        if start[2] < self.target[2] + cfg["min_start_above_block_m"]:
-            return {"ok": False, "error": f"末端高度 {start[2]:.2f}m 不够高,直线靠近可能穿过桌面。"
-                                          "请用户先把左臂移到桌面上方。"}
 ```
 
-**目标点就是在这里算的**:物体坐标加上正上方的偏移。这是模型唯一能影响运动的地方,而它只能影响偏移量。
+**目标点就是在这里算的**:物体坐标加上正上方的偏移。模型只能影响偏移量。工作范围按手臂分开,右臂是左臂的 y 镜像,见 [gateway.py#L107](../harness/gateway.py#L107)。
 
-最后一项“防穿桌”:当前没有加载点云,MoveIt 不知道桌子存在。如果末端起点比桌面还低,直线移向物体时可能穿过桌沿,所以起点至少要比物体高 13cm(工具长度加余量)。
-
-[harness/gateway.py#L80-L90](../harness/gateway.py#L80-L90):规划、只规划、人工确认
+[harness/gateway.py#L148-L157](../harness/gateway.py#L148-L157)
 
 ```python
-        plan = self.backend.plan_left_to(target)
-        info = {"target_xyz_m": _round(target), "standoff_m": round(standoff, 3),
+        plan = self.backend.plan_arm_to(arm, target)
+        info = {"arm": arm, "target_xyz_m": _round(target), "standoff_m": round(standoff, 3),
                 "travel_m": round(travel, 3), "plan": plan["summary"] if plan["ok"] else None}
         if not plan["ok"]:
             return {"ok": False, "executed": False, "error": f"规划失败:{plan['error']}", **info}
-        if self.plan_only:
-            return {"ok": True, "executed": False, "note": "只规划模式,机器人没有动", **info}
-        if self.confirm and not self.confirm(
-                f"左臂末端将直线移动 {travel * 100:.1f}cm 到 {_round(target)}"
-                f"(物体上方 {standoff * 100:.0f}cm),{plan['summary']}。输入 y 执行:"):
-            return {"ok": False, "executed": False, "error": "用户拒绝了这次运动", **info}
+        floor = self.target[2] + cfg["min_path_above_object_m"]
+        if plan["lowest_z_m"] < floor:
+            return {"ok": False, "executed": False,
+                    "error": f"路径最低点 {plan['lowest_z_m']:.2f}m 低于 {floor:.2f}m,可能穿过桌面。"
+                             f"请用户先把{ARM_NAME[arm]}移到桌面上方。", **info}
 ```
 
-顺序很重要:**先规划再确认**。你按 `y` 时看到的是已经算好的真实轨迹摘要,而不是一个可能规划失败的意图。
+最后一项“防穿桌”:桌子不一定在 octomap 里(相机没看到),规划器就不知道它在。所以靠近物体时,整条路径都要比物体高 13cm(工具长度加余量)。
 
-[harness/gateway.py#L92-L97](../harness/gateway.py#L92-L97):执行与回报
+[harness/gateway.py#L159-L165](../harness/gateway.py#L159-L165)
 
 ```python
-        self.moves += 1
-        done = self.backend.execute(plan)
-        end = self.backend.left_end_xyz()
-        return {"ok": done["ok"], "executed": done["ok"], "msg": done["msg"], "end_xyz_m": _round(end),
-                "error_to_target_mm": round(math.dist(end, target) * 1000, 1),
-                "distance_to_object_m": round(math.dist(end, self.target), 3), **info}
+        result = self._confirm_and_run(
+            plan, f"{ARM_NAME[arm]}末端将移动到 {_round(target)}(直线距离 {travel * 100:.1f}cm,"
+                  f"物体上方 {standoff * 100:.0f}cm),{plan['summary']}", info)
+        if result.get("executed"):
+            end = self.backend.end_pose(arm)["xyz_m"]
+            result.update(end_xyz_m=_round(end), error_to_target_mm=round(math.dist(end, target) * 1000, 1),
+                          distance_to_object_m=round(math.dist(end, self.target), 3))
 ```
 
-- `self.moves += 1` 放在执行**之前**:就算执行中途失败,这次也算用掉了,防止模型反复重试。
-- 执行后**重新读一次实测位置**,算出到位误差。回报给模型的是测量值,不是“应该到了”。
+执行后**重新读一次实测位置**,算出到位误差。回报给模型的是测量值,不是“应该到了”。
+
+### 8.6 move_arm_end:相对移动
+
+[harness/gateway.py#L187-L205](../harness/gateway.py#L187-L205)
+
+```python
+        offset_m = [v / 100 for v in offset_cm]
+        distance = math.hypot(*offset_m)
+        if distance > cfg["max_offset_m"]:
+            return {"ok": False, "error": f"一次移动 {distance:.2f}m 超过上限 {cfg['max_offset_m']}m,请分几次移动"}
+
+        now = self.backend.end_pose(arm)
+        start, start_rpy = now["xyz_m"], now["rpy_deg"]
+        target = [s + d for s, d in zip(start, offset_m)]
+        error = self._check_workspace(arm, target)
+        if error:
+            return {"ok": False, "error": error}
+
+        target_rpy = None                                   # None = 保持当前姿态
+        turn = 0.0
+        if any(rotate_deg):
+            target_rpy = rotate_rpy_deg(start_rpy, rotate_deg)
+            turn = rotation_between_deg(start_rpy, target_rpy)
+            if turn > cfg["max_rotate_deg"]:
+                return {"ok": False, "error": f"一次转动 {turn:.0f}° 超过上限 {cfg['max_rotate_deg']}°,请分几次转"}
+```
+
+- 偏移和转角都有单次上限(`max_offset_m`、`max_rotate_deg`),主要防模型把单位弄错。超了就让模型分几次。
+- 姿态不转时传 `None`,规划器保持当前姿态。
+- 转动用 `rotate_rpy_deg` 在当前姿态上叠加,换算在 [harness/geometry.py](../harness/geometry.py)。
+
+[harness/gateway.py#L213-L218](../harness/gateway.py#L213-L218)
+
+```python
+        dip = cfg.get("max_path_dip_m")                     # None = 不检查,碰撞完全交给规划器
+        floor = None if dip is None else min(start[2], target[2]) - dip
+        if floor is not None and plan["lowest_z_m"] < floor:
+            return {"ok": False, "executed": False,
+                    "error": f"规划出的路径最低点 {plan['lowest_z_m']:.2f}m 比起点和终点低太多(下限 {floor:.2f}m),"
+                             "可能扫到桌面,已拒绝", **info}
+```
+
+绕障路径可能先往下再绕过去。`max_path_dip_m` 默认 `null`(不检查),因为碰撞交给了规划器。如果桌面没进 octomap,可以在配置里设成 0.05 兜底。
+
+### 8.7 move_joints 和 go_to_pose:关节组运动
+
+[harness/gateway.py#L240-L262](../harness/gateway.py#L240-L262)
+
+```python
+        has_deltas, has_angles = "deltas_deg" in args, "angles_deg" in args
+        if has_deltas == has_angles:
+            return {"ok": False, "error": "deltas_deg(相对转多少)和 angles_deg(转到多少)必须给且只给一个"}
+        if has_deltas:
+            values, error = _number_list(args["deltas_deg"], len(names), "deltas_deg")
+            if error:
+                return {"ok": False, "error": error}
+            target = {j: current[j] + math.radians(d) for j, d in zip(names, values)}
+        else:
+            values, error = _number_list(args["angles_deg"], len(names), "angles_deg")
+            if error:
+                return {"ok": False, "error": error}
+            target = {j: math.radians(a) for j, a in zip(names, values)}
+
+        limit = self.cfg["max_joint_delta_deg"][group]
+        for i, j in enumerate(names, start=1):
+            delta = math.degrees(target[j] - current[j])
+            if abs(delta) > limit:
+                return {"ok": False, "error": f"{GROUP_NAME[group]}第 {i} 关节要转 {delta:.0f}°,"
+                                              f"超过单次上限 {limit}°,请分几次转"}
+        if all(abs(target[j] - current[j]) < 1e-4 for j in names):
+            return {"ok": False, "error": "目标和当前关节角相同,不需要运动"}
+        return self._plan_and_run_joints(target, [group], f"{GROUP_NAME[group]}关节")
+```
+
+`deltas_deg` 和 `angles_deg` 都换算成目标角,然后统一检查“每个关节这次要转多少”。上限在 `max_joint_delta_deg`,按组分开(腰最严)。
+
+[harness/gateway.py#L279-L303](../harness/gateway.py#L279-L303)
+
+```python
+    def _plan_and_run_joints(self, target, groups, label):
+        """move_joints 和 go_to_pose 共用:限位检查 → 规划(碰撞检查 + 绕行) → 确认 → 执行。"""
+        limits = self.backend.joint_limits()
+        for j, v in target.items():
+            if j in limits:
+                low, high = limits[j]
+                if not low + LIMIT_MARGIN_RAD <= v <= high - LIMIT_MARGIN_RAD:
+                    return {"ok": False, "error": f"{j} 目标 {math.degrees(v):.1f}° 超出限位 "
+                                                  f"[{math.degrees(low):.1f}°, {math.degrees(high):.1f}°]"}
+
+        current = self.backend.joint_state()
+        speed = min(self.cfg["joint_speed_rad_s"][g] for g in groups)
+        changes = {g: round(max(abs(math.degrees(target[j] - current[j])) for j in GROUPS[g][1]), 1)
+                   for g in groups}
+        plan = self.backend.plan_joints(target, speed)
+        info = {"groups": groups, "max_change_deg": changes, "plan": plan["summary"] if plan["ok"] else None}
+        if not plan["ok"]:
+            return {"ok": False, "executed": False, "error": f"规划失败:{plan['error']}", **info}
+
+        text = ",".join(f"{GROUP_NAME[g]}最大 {d}°" for g, d in changes.items())
+        result = self._confirm_and_run(plan, f"{label}:{text},峰值速度 {speed} rad/s,{plan['summary']}", info)
+        if result.get("executed"):
+            now = self.backend.joint_state()
+            result["joints_deg"] = {g: [round(math.degrees(now[j]), 2) for j in GROUPS[g][1]] for g in groups}
+        return result
+```
+
+- URDF 限位留 0.02 rad 余量,目标不能贴着限位。
+- 几个组一起动(`go_to_pose`)时,速度取这几组里最慢的那个。
+- `go_to_pose` 不受单次变化上限约束:位姿是人录好的,本来就可能差很多。
 
 ---
 
 ## 9. 执行层:backends/
 
-Gateway 决定“能不能做”,backend 负责“具体怎么做”。两个 backend 提供完全相同的 5 个方法:
+Gateway 决定“能不能做”,backend 负责“具体怎么做”。两个 backend 提供完全相同的方法:
 
 | 方法 | 返回 |
 |---|---|
 | `locate_object(color, ranges)` | `{"ok": True, "xyz_m": [...], ...}` 或 `{"ok": False, "error": ...}` |
+| `end_pose(arm)` | `{"xyz_m": [x, y, z], "rpy_deg": [r, p, y]}` |
 | `left_end_xyz()` | `[x, y, z]` |
-| `plan_left_to(target)` | `{"ok": True, "summary": ..., ...}` 或 `{"ok": False, "error": ...}` |
-| `execute(plan)` | `{"ok": bool, "msg": ...}` |
+| `joint_state()` | `{关节名: 弧度}` |
+| `joint_limits()` | `{关节名: (下限, 上限)}` |
+| `plan_arm_to(arm, target, rpy_deg=None)` | `{"ok": True, "kind": "arm", "summary": ..., "lowest_z_m": ...}` 或 `{"ok": False, "error": ...}` |
+| `plan_joints(target, speed)` | `{"ok": True, "kind": "joints", "summary": ...}` 或 `{"ok": False, "error": ...}` |
+| `execute(plan)` | `{"ok": bool, "msg": ...}`,按 `plan["kind"]` 分给手臂或关节组 |
 | `close()` | 无 |
 
-这种“同样的方法,不同的实现”叫**接口**。Gateway 只认这 5 个方法,不关心对面是真机还是假的。
+这种“同样的方法,不同的实现”叫**接口**。Gateway 只认这些方法,不关心对面是真机还是假的。
 
 ### 9.1 假机器人
 
-[harness/backends/fake.py#L4-L28](../harness/backends/fake.py#L4-L28)
+[harness/backends/fake.py#L41-L47](../harness/backends/fake.py#L41-L47)
 
 ```python
-class FakeBackend:
-    def __init__(self, block=(0.55, 0.25, 0.60), end=(0.59, 0.42, 0.77), visible=("red", "green"), plan_error=None):
-        self.block = list(block)
-        self.end = list(end)
-        self.visible = visible
-        self.plan_error = plan_error
-        self.executed = []
-
-    def locate_object(self, color, ranges):
-        if color not in self.visible:
-            return {"ok": False, "error": f"画面里没有看到 {color} 物体"}
-        return {"ok": True, "frame": "base_link", "tf": "target_object", "color": color, "xyz_m": list(self.block)}
-
-    def left_end_xyz(self):
-        return list(self.end)
-
-    def plan_left_to(self, target):
+    def plan_arm_to(self, arm, target, rpy_deg=None):
         if self.plan_error:
             return {"ok": False, "error": self.plan_error}
-        return {"ok": True, "target": list(target), "summary": "假规划"}
+        start = self.ends[arm]["xyz_m"]
+        return {"ok": True, "kind": "arm", "arm": arm, "target": list(target),
+                "rpy_deg": list(rpy_deg) if rpy_deg is not None else list(self.ends[arm]["rpy_deg"]),
+                "summary": "假规划", "lowest_z_m": min(start[2], target[2])}   # 直线路径的最低点在两端之一
+```
 
+[harness/backends/fake.py#L60-L67](../harness/backends/fake.py#L60-L67)
+
+```python
     def execute(self, plan):
-        self.executed.append(plan["target"])
-        self.end = list(plan["target"])
+        if plan["kind"] == "arm":
+            self.executed.append(plan["target"])
+            self.ends[plan["arm"]] = {"xyz_m": list(plan["target"]), "rpy_deg": list(plan["rpy_deg"])}
+        else:
+            self.executed.append(dict(plan["target"]))
+            self.joints.update(plan["target"])
         return {"ok": True, "msg": "假执行完成"}
 ```
 
 - `executed` 列表记录所有“执行过”的目标。测试里检查 `backend.executed == []`,就能确认机器人**真的没动**。
 - `plan_error` 用来注入故障,模拟规划失败。
+- 执行后会改掉假机器人自己的状态,所以“先抬手、再读位置”能读到新位置。
 
 ### 9.2 真机:启动
 
-[harness/backends/ros.py#L50-L67](../harness/backends/ros.py#L50-L67)
+[harness/backends/ros.py#L56-L74](../harness/backends/ros.py#L56-L74)
 
 ```python
         rclpy.init()
         self.node = rclpy.create_node("robot_harness")
         self.arm = ArmMotion("robot_harness_arm")
+        self.body = WholeBody(self.node)        # 订阅 /joint_states,连 4 个 JTC 和 /check_state_validity
         self.camera = SensorNode("robot_harness_camera")
         self.tf = TransformBroadcaster(self.node)
         self.node.create_timer(0.1, self._publish_tf)
@@ -628,11 +831,11 @@ class FakeBackend:
             raise
 ```
 
-- `ArmMotion` 来自 `agi@g2_robot`,是你已有的运控节点,这里直接复用。
+- `ArmMotion` 负责手臂末端规划和执行;`WholeBody` 负责四个关节组(腰、头、双臂)的关节运动。两者都是 `harness/motion/` 里的代码。
 - ROS 节点要 `spin` 才能收到消息。这里在**后台线程**里 spin,主线程就可以像普通函数一样调用 `locate_object`、`execute`,而回调(关节反馈、服务回复)在后台照常处理。
 - `_wait_until_ready` 失败时先 `close()` 再抛异常,避免留下半初始化的节点。
 
-[harness/backends/ros.py#L75-L82](../harness/backends/ros.py#L75-L82)
+[harness/backends/ros.py#L82-L89](../harness/backends/ros.py#L82-L89)
 
 ```python
     def _wait_until_ready(self):
@@ -649,7 +852,7 @@ class FakeBackend:
 
 ### 9.3 真机:定位
 
-[harness/backends/ros.py#L84-L117](../harness/backends/ros.py#L84-L117) 的流程:
+[ros.py#L91](../harness/backends/ros.py#L91) 的流程:
 
 ```text
 头部相机 5 帧(彩色 + 深度 + 头部位姿,同一时间戳)
@@ -662,7 +865,7 @@ class FakeBackend:
 
 核心几行:
 
-[harness/backends/ros.py#L94-L97](../harness/backends/ros.py#L94-L97)
+[harness/backends/ros.py#L101-L104](../harness/backends/ros.py#L101-L104)
 
 ```python
                 bgr, depth_mm, T_base_head, _ = frame
@@ -671,36 +874,47 @@ class FakeBackend:
                 found, why = find_objects(bgr, depth_m, points, CALIB["depth"]["fx"], ranges, self.vision)
 ```
 
-`self.rgbd.points_base` 来自 `task_board_pose`,用你标定好的相机内外参,把每个深度像素换算到 `base_link`。G2 的彩色图和深度图已经逐像素对齐,所以同一个 (u, v) 的颜色和深度就是同一个点。
+`self.rgbd.points_base` 用标定好的相机内外参,把每个深度像素换算到 `base_link`。G2 的彩色图和深度图已经逐像素对齐,所以同一个 (u, v) 的颜色和深度就是同一个点。
 
-### 9.4 真机:末端位置
+### 9.4 真机:末端位姿和关节
 
-[harness/backends/ros.py#L143-L145](../harness/backends/ros.py#L143-L145)
+[harness/backends/ros.py#L151-L154](../harness/backends/ros.py#L151-L154)
 
 ```python
-    def left_end_xyz(self):
-        """arm_l_end_link 在 base_link 下的位置:由实测关节角正运动学得到,和 TF 同一条运动链。"""
-        return self.arm.pose(ARM)[0].tolist()
+    def end_pose(self, arm):
+        """arm_{l,r}_end_link 在 base_link 下的位姿:由实测关节角正运动学得到,和 TF 同一条运动链。"""
+        p, R = self.arm.pose(arm)
+        return {"xyz_m": p.tolist(), "rpy_deg": matrix_to_rpy_deg(R)}
 ```
 
 没有用 TF 监听,而是用实测关节角做正运动学。结果和 TF 一样,但和规划用的是同一套运动学模型,不会有两套数据对不上的问题。
 
-### 9.5 真机:规划与放慢
+### 9.5 真机:手臂规划(和 pose_ab_search 同一套)
 
-[harness/backends/ros.py#L147-L152](../harness/backends/ros.py#L147-L152)
+[harness/backends/ros.py#L172-L185](../harness/backends/ros.py#L172-L185)
 
 ```python
-    def plan_left_to(self, target):
-        plan = self.arm.plan_cartesian(ARM, np.array(target, dtype=float))    # 姿态保持不变
+    def plan_arm_to(self, arm, target, rpy_deg=None):
+        """末端到 target(base_link,米)。rpy_deg=None 保持当前姿态。
+        先试积分笛卡尔直线;直线不行再 plan_detour(via_then_rrt),和 pose_ab_search 一样。"""
+        target = np.array(target, dtype=float)
+        R = None if rpy_deg is None else rpy_deg_to_matrix(rpy_deg)
+        plan = self.arm.plan_cartesian(arm, target, R)
         if isinstance(plan, str):
-            return {"ok": False, "error": plan}
+            detour = self.arm.plan_detour(arm, target, R)
+            if isinstance(detour, str):
+                return {"ok": False, "error": f"直线:{plan};绕障:{detour}"}
+            plan = detour
         slow_down(plan, self.speed)
-        return {"ok": True, "plan": plan, "summary": plan.summary()}
+        return {"ok": True, "kind": "arm", "plan": plan, "summary": plan.summary(),
+                "lowest_z_m": self._lowest_z(arm, plan.path)}
 ```
 
-`plan_cartesian` 是 `agi@g2_robot` 的积分笛卡尔规划:末端走直线、姿态不变、构型连续,并做整机自碰撞检查。它失败时返回字符串,成功时返回 `Plan` 对象,这里统一转成 dict。
+- `plan_cartesian`:积分笛卡尔直线,末端走直线、构型连续,并做整机碰撞检查。
+- 直线不行就 `plan_detour`:默认规划器 `via_then_rrt`,先试 V / 梯形 / U 型绕行模板,不通再末端空间 RRT,最后捷径平滑。`agi@g2_robot` 里的 `ros2 run genie_robot_agibot_g2_motion pose_ab_search` 用的就是这个函数和这个规划器。
+- 两者失败时都返回字符串,成功时返回 `Plan` 对象,这里统一转成 dict。
 
-[harness/backends/ros.py#L27-L39](../harness/backends/ros.py#L27-L39)
+[harness/backends/ros.py#L31-L43](../harness/backends/ros.py#L31-L43)
 
 ```python
 def slow_down(plan, speed):
@@ -718,7 +932,51 @@ def slow_down(plan, speed):
     return plan
 ```
 
-`ArmMotion` 默认末端速度 0.15m/s,配置要求 0.05m/s,所以 k = 3:每个轨迹点的时间乘 3,速度除以 3,加速度除以 9(时间放慢 k 倍,加速度变成 1/k²)。路径形状不变,只是走得更慢。
+规划出的轨迹按 `ArmMotion` 的默认速度计时,这里按比例放慢到配置里的末端速度,形状不变。
+
+### 9.6 真机:关节组规划
+
+[harness/backends/ros.py#L196-L202](../harness/backends/ros.py#L196-L202)
+
+```python
+    def plan_joints(self, target, speed):
+        """关节组到 target({关节名: 弧度}):整机碰撞检查,直线会撞就经录好位姿中转 / 关节 RRT。"""
+        detour = JointDetour(self.body._valid, self.joint_limits(), self.poses)
+        plan = self.body.plan(target, speed=speed, detour=detour)
+        if isinstance(plan, str):
+            return {"ok": False, "error": plan}
+        return {"ok": True, "kind": "joints", "plan": plan, "summary": plan.summary()}
+```
+
+`WholeBody.plan` 先在关节空间走直线,沿途每 0.05 rad 问一次 MoveIt 整机会不会撞;会撞就交给 `JointDetour`:先试经过某个录好的位姿中转,再试关节 RRT。这就是 `scripts/goto_pose.py` 用的那套。
+
+原来的 `WholeBody.goto` 是“规划完立刻执行”。为了能在中间打印规划、等人按 `y`,拆成了两步:
+
+[harness/motion/whole_body.py#L123-L130](../harness/motion/whole_body.py#L123-L130)
+
+```python
+    def goto(self, target, speed=0.3, min_duration=2.0, check=True, check_step=0.05, cancelled=None, progress=None,
+             detour=None):
+        """target：{关节名: 弧度}（可以只含部分组）。detour：直线会撞时的保底（JointDetour），None = 撞了就失败。
+        返回 (成功?, 说明)。= plan() + run()，中间不停。"""
+        plan = self.plan(target, speed, min_duration, check, check_step, progress, detour)
+        if isinstance(plan, str):
+            return False, plan
+        return self.run(plan, cancelled, progress)
+```
+
+`run` 执行前会再读一次关节:如果从规划到按 `y` 这段时间里机器人被挪动了超过 0.05 rad,就拒绝执行,要求重新规划。
+
+[harness/backends/ros.py#L205-L210](../harness/backends/ros.py#L205-L210)
+
+```python
+    def execute(self, plan):
+        if plan["kind"] == "arm":
+            ok, msg = self.arm.execute(plan["plan"])
+        else:
+            ok, msg = self.body.run(plan["plan"])
+        return {"ok": ok, "msg": msg}
+```
 
 ---
 
@@ -835,7 +1093,7 @@ def merge_frames(per_frame, min_good, max_spread, reference):
 3. `start=176, end=2`,`end < start` 所以 `end = 182`;加 8 的余量得到 [168, 190]。
 4. 190 超过 179,拆成 [168, 179] 和 [0, 10] 两段。
 
-如果直接取 min 和 max,会得到 [2, 176],把绿色、蓝色全包进去了。测试 [tests/test_objects.py#L218](../tests/test_objects.py#L218) 验证了这个例子。
+如果直接取 min 和 max,会得到 [2, 176],把绿色、蓝色全包进去了。测试 [test_objects.py#L221](../tests/test_objects.py#L221) 验证了这个例子。
 
 [harness/colors.py#L31-L32](../harness/colors.py#L31-L32)
 
@@ -881,7 +1139,7 @@ def sample_at(bgr, x, y, radius=2):
 
 ## 12. 配置:configs/
 
-[configs/harness.yaml#L11-L23](../configs/harness.yaml#L11-L23)
+[configs/harness.yaml#L11-L47](../configs/harness.yaml#L11-L47)
 
 ```yaml
 motion:
@@ -891,17 +1149,43 @@ motion:
   standoff_max_m: 0.40
   max_travel_m: 0.70        # 一次最多移动多远
   detection_max_age_s: 30   # 积木识别结果多久后作废
-  min_start_above_block_m: 0.13  # 起点要比积木高这么多,防止直线穿过桌面
-  max_moves_per_command: 1  # 一条指令最多动几次
-  workspace:                # 目标点必须在此范围内(base_link,米)
-    x: [0.20, 0.85]
-    y: [-0.20, 0.75]
-    z: [0.30, 1.30]
+  min_path_above_object_m: 0.13  # 整条路径上末端都要比物体高这么多,防止穿过桌面
+  max_moves_per_command: 5  # 一条指令最多动几次(每次都要人按 y)
+  workspace:                # 末端目标点必须在此范围内(base_link,米);右臂是左臂的 y 镜像
+    left:
+      x: [0.20, 0.85]
+      y: [-0.20, 0.75]
+      z: [0.30, 1.30]
+    right:
+      x: [0.20, 0.85]
+      y: [-0.75, 0.20]
+      z: [0.30, 1.30]
+
+  # move_arm_end:手臂末端相对移动(先直线,不行再 via_then_rrt 绕障,和 pose_ab_search 同一套)
+  # 碰撞由规划器负责(整机自碰撞 + octomap + planning scene 碰撞体),这里只挡明显输错的数
+  max_offset_m: 0.60        # 一次相对移动最多多远
+  max_rotate_deg: 90        # 一次最多转多少度
+  max_path_dip_m: null      # 路径最低点最多比起点、终点中较低者再低多少;null = 不检查。
+                            # 桌面没进 octomap(相机没看到)时规划器不知道它在,这时可以设 0.05 兜底
+
+  # move_joints / go_to_pose:关节组运动(碰撞检查 + 经录好位姿中转 / 关节 RRT 绕行)
+  joint_speed_rad_s:        # 最慢关节的峰值速度;几个组一起动时取最小值
+    body: 0.10
+    head: 0.30
+    left_arm: 0.20
+    right_arm: 0.20
+  max_joint_delta_deg:      # move_joints 一次每个关节最多转多少度(go_to_pose 不受此限,位姿是人录的)
+    body: 45
+    head: 90
+    left_arm: 120
+    right_arm: 120
 ```
 
 每个值对应 gateway 里的一项检查。**改安全参数前,先找到它在 gateway 里被用在哪**,搞清楚放宽之后会允许什么。
 
-[configs/harness.yaml#L25-L33](../configs/harness.yaml#L25-L33)
+前半部分是 `approach_object` 用的;`workspace` 两臂分开;`max_offset_m` 之后是新运动工具的上限。碰撞交给规划器,所以这些上限主要防的是“模型把单位弄错”,不是防碰撞。
+
+[configs/harness.yaml#L49-L57](../configs/harness.yaml#L49-L57)
 
 ```yaml
 vision:
@@ -1009,24 +1293,28 @@ target_object    本项目发布的 TF,定位到的物体表面中位点
 
 | 防护 | 防的是什么 | 代码 |
 |---|---|---|
-| 工具没有坐标参数 | 模型编造目标点 | [tools/objects.py#L20](../harness/tools/objects.py#L20) |
-| 未知工具拒绝 | 模型编造工具 | [gateway.py#L25](../harness/gateway.py#L25) |
-| 必须先定位 | 没有目标就乱动 | [gateway.py#L50](../harness/gateway.py#L50) |
-| 定位失败清除旧目标 | 飞向上一个物体 | [gateway.py#L36](../harness/gateway.py#L36) |
-| 定位 30s 作废 | 物体被挪走后用旧坐标 | [gateway.py#L52](../harness/gateway.py#L52) |
-| 每条指令最多动一次 | 模型反复重试 | [gateway.py#L55](../harness/gateway.py#L55) |
-| 悬停 18~40cm,排除 bool | 工具撞到物体 | [gateway.py#L58](../harness/gateway.py#L58) |
-| 工作空间 | 目标不合理 | [gateway.py#L67](../harness/gateway.py#L67) |
-| 单次距离上限 | 大幅度运动 | [gateway.py#L74](../harness/gateway.py#L74) |
-| 起点高于物体 13cm | 直线穿过桌面 | [gateway.py#L76](../harness/gateway.py#L76) |
-| 先规划后确认 | 按 `y` 时看不到真实轨迹 | [gateway.py#L80](../harness/gateway.py#L80) |
-| `--plan-only` | 调试时误动 | [gateway.py#L85](../harness/gateway.py#L85) |
-| 人工按 `y` | 一切意外 | [gateway.py#L87](../harness/gateway.py#L87) |
-| 必须有 MoveIt 碰撞服务 | 自碰撞检查被悄悄跳过 | [ros.py#L81](../harness/backends/ros.py#L81) |
-| 末端 5cm/s | 来不及按急停 | [ros.py#L27](../harness/backends/ros.py#L27) |
-| 只报 `executed: true` 才算动了 | 模型谎报成功 | [loop.py#L9](../harness/loop.py#L9) |
+| 模型给不了物体坐标 | 模型编造目标点 | [objects.py#L26](../harness/tools/objects.py#L26) |
+| 运动工具只收相对偏移 / 关节增量 / 录好的位姿名 | 模型编造绝对坐标 | [motion.py#L25](../harness/tools/motion.py#L25) |
+| 未知工具拒绝 | 模型编造工具 | [gateway.py#L57](../harness/gateway.py#L57) |
+| 必须先定位 | 没有目标就乱动 | [gateway.py#L121](../harness/gateway.py#L121) |
+| 定位失败清除旧目标 | 飞向上一个物体 | [gateway.py#L69](../harness/gateway.py#L69) |
+| 定位 30s 作废 | 物体被挪走后用旧坐标 | [gateway.py#L124](../harness/gateway.py#L124) |
+| 每条指令运动次数上限(所有运动工具共用) | 模型反复重试 | [gateway.py#L92](../harness/gateway.py#L92) |
+| 悬停 18~40cm,排除 bool | 工具撞到物体 | [gateway.py#L130](../harness/gateway.py#L130) |
+| 两臂各自的工作空间 | 目标不合理 | [gateway.py#L107](../harness/gateway.py#L107) |
+| 单次距离 / 转角 / 关节变化上限 | 模型把单位弄错 | [gateway.py#L188](../harness/gateway.py#L188) |
+| URDF 限位留余量 | 关节顶到限位 | [gateway.py#L279](../harness/gateway.py#L279) |
+| 靠近物体时路径高于物体 13cm | 桌子不在 octomap 时穿过桌面 | [gateway.py#L153](../harness/gateway.py#L153) |
+| 整机碰撞检查 + 绕障 | 撞到自己 / 已知障碍 | [ros.py#L172](../harness/backends/ros.py#L172) |
+| 先规划后确认 | 按 `y` 时看不到真实轨迹 | [gateway.py#L97](../harness/gateway.py#L97) |
+| `--plan-only` | 调试时误动 | [gateway.py#L99](../harness/gateway.py#L99) |
+| 人工按 `y` | 一切意外 | [gateway.py#L101](../harness/gateway.py#L101) |
+| 规划后机器人被挪动就不执行 | 按 `y` 前有人动了机器人 | [whole_body.py#L178](../harness/motion/whole_body.py#L178) |
+| 必须有 MoveIt 碰撞服务 | 自碰撞检查被悄悄跳过 | [ros.py#L88](../harness/backends/ros.py#L88) |
+| 末端 5cm/s | 来不及按急停 | [ros.py#L31](../harness/backends/ros.py#L31) |
+| 只报 `executed: true` 才算动了 | 模型谎报成功 | [loop.py#L10](../harness/loop.py#L10) |
 
-**没有防护的**:环境避障。桌子和物体不在碰撞检查里,所以必须有人守着急停。
+**没有防护的**:规划器看不到的障碍。没进 octomap、也没加进 planning scene 的东西(比如相机没看到的桌沿),碰撞检查不知道它存在,所以必须有人守着急停。
 
 ---
 
@@ -1054,6 +1342,8 @@ python3 -c "import json,glob; [print(json.loads(l)['kind'], json.dumps(json.load
 ---
 
 ## 17. 动手:手搓抬手工具 lift_left_end
+
+> 说明(2026-11-11):这一章写于 `move_arm_end` 出现之前。现在 `move_arm_end(arm="left", offset_cm=[0, 0, 20])` 已经能“抬手”,`approach_object` 的拒绝条件也变成了“路径最低点低于物体上方 13cm”。这一章保留作为“从零加一个工具”的练习,步骤不变;做完可以对照 [gateway.py 的 `_move_arm_end`](#86-move_arm_end相对移动)。
 
 ### 17.1 要解决的问题
 
@@ -1145,14 +1435,14 @@ def test_lift_plan_only_never_moves():
 
 ### 17.4 第二步:告诉模型有这个工具
 
-在 [harness/tools/objects.py#L20-L23](../harness/tools/objects.py#L20-L23) 的 `approach_object` 后面,仿照它加一个 `_tool(...)`。
+在 [harness/tools/objects.py#L26-L31](../harness/tools/objects.py#L26-L31) 的 `approach_object` 后面,仿照它加一个 `_tool(...)`。
 
 要点:
 
 - 名字 `lift_left_end`。
 - 说明里写清楚**什么时候用**(`approach_object` 报末端不够高时)和**会让机器人运动**。
 - 参数 `dz_cm`,类型 `number`,说明里写范围 5 到 30。
-- 这次参数是必填的,用 `required=["dz_cm"]`,参考 [objects.py#L17](../harness/tools/objects.py#L17)。
+- 这次参数是必填的,用 `required=["dz_cm"]`,参考 [objects.py#L23](../harness/tools/objects.py#L23)。
 
 改完运行测试,`test_tool_is_visible_to_model` 应该通过了。
 
@@ -1160,7 +1450,7 @@ def test_lift_plan_only_never_moves():
 
 两处改动:
 
-1. 在 [gateway.py#L22-L24](../harness/gateway.py#L22-L24) 的 `handlers` 里加一行 `"lift_left_end": self._lift`。
+1. 在 [gateway.py#L50](../harness/gateway.py#L50) 的 `handlers` 里加一行 `"lift_left_end": self._lift`。
 2. 在类的末尾写 `_lift(self, args)`。
 
 `_lift` 的骨架,照着 `_approach` 的结构填:
@@ -1252,7 +1542,7 @@ def test_lift_then_approach_needs_two_moves():
 
 `{**MOTION, "max_moves_per_command": 2}` 是复制一份配置并只改这一项,不影响其他测试。
 
-然后改 [configs/harness.yaml#L19](../configs/harness.yaml#L19),再在 [loop.py 的 SYSTEM](../harness/loop.py#L4-L9) 里加一句:
+然后改 [harness.yaml#L19](../configs/harness.yaml#L19),再在 [loop.py 的 SYSTEM](../harness/loop.py#L4-L10) 里加一句:
 
 ```text
 approach_object 报“末端高度不够高”时,先调用 lift_left_end 抬高 20 厘米,再重新调用 approach_object。

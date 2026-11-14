@@ -2,7 +2,7 @@
 
 ## 这里干什么
 
-从 G2 头部相机取同步的彩色图、深度图和头部位姿,把每个深度像素换算成 `base_link` 下的 3D 点。颜色识别本身在 [`harness/backends/color_object.py`](../backends/color_object.py),这里只负责“拿到图和 3D 点”。
+从 G2 头部相机取同步的彩色图、深度图和头部位姿,把每个深度像素换算成 `base_link` 下的 3D 点。物体识别用 SAM 3(`sam3_client.py`、`sam3_objects.py`)。
 
 代码**复制自 `agi@g2_robot` 的 `task_board_pose`**(提交 `ecdfb5d`),没有改动。
 
@@ -14,6 +14,9 @@
 | `scene3d.py` | `Rgbd.points_base`:深度图 → `base_link` 下的 3D 点 |
 | `calib.py` | 头部相机内参、外参(2026-11-03 从真机读出) |
 | `sensor_node.py` | 用时才订阅、用完就退订的传感器节点,避免一直接收大流量图像 |
+| `sam3_objects.py` | SAM 3 掩码 + 深度 → base_link 物体(按距离编号);分割日志存到 `traces/sam3/` |
+| `head_aim.py` | `HeadAim`:算头部 yaw、pitch 让相机对准一个点(URDF 正运动学 + 外参) |
+| `sam3_client.py` | SAM 3 服务的客户端(本仓库自己写的,不是复制来的),见 [docs/sam3_service.md](../../docs/sam3_service.md) |
 
 ## 和哪里联动
 
@@ -30,7 +33,7 @@ scene3d.Rgbd.points_base ──→ 每个像素的 base_link 坐标
 backends/color_object.find_objects ──→ 物体坐标
 ```
 
-使用者:[`harness/backends/ros.py`](../backends/ros.py) 定位物体,[`scripts/hsv_pick.py`](../../scripts/hsv_pick.py) 实时取色。
+使用者:[`harness/backends/ros.py`](../backends/ros.py) 找物体,[`scripts/sam3_live.py`](../../scripts/sam3_live.py) 实时分割。
 
 这些话题由机器人本身发布,不需要 `hardware.launch.py`,但需要 `source ~/agi@g2_robot/env_g2.sh` 加载 GDK 的 DDS 配置。
 

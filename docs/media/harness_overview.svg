@@ -1,0 +1,638 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3640" height="2800" viewBox="0 0 3640 2800">
+<defs>
+<marker id="a_call" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f2328"/></marker>
+<marker id="a_call_s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#1f2328"/></marker>
+<marker id="a_data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2f6fbd"/></marker>
+<marker id="a_data_s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#2f6fbd"/></marker>
+<marker id="a_ros" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#d1661a"/></marker>
+<marker id="a_ros_s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#d1661a"/></marker>
+<marker id="a_dev" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker>
+<marker id="a_dev_s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#8c959f"/></marker>
+<marker id="a_human" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#c4302b"/></marker>
+<marker id="a_human_s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#c4302b"/></marker>
+</defs>
+<rect width="3640" height="2800" fill="#ffffff"/>
+<text x="40" y="52" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="34" font-weight="bold" fill="#1f2328" text-anchor="start">robot_harness 全景:文件夹 · 文件 · 函数 · 数据流</text>
+<text x="40" y="84" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="17" font-weight="normal" fill="#57606a" text-anchor="start">智元 G2 + DeepSeek 工具调用。左:每个方框是一个文件,白字是文件名,下面是主要函数;箭头上写的是传递的东西。右:一条真实指令的完整时序(docs/harness_guide.md 第 2 章)。</text>
+<polyline points="2420,60 2470,60" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<text x="2478" y="65" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">函数调用</text>
+<polyline points="2660,60 2710,60" fill="none" stroke="#2f6fbd" stroke-width="2.2" marker-end="url(#a_data)"/>
+<text x="2718" y="65" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">返回 / 数据</text>
+<polyline points="2900,60 2950,60" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)"/>
+<text x="2958" y="65" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="15" font-weight="normal" fill="#d1661a" text-anchor="start">ROS 话题 / 服务 / action</text>
+<polyline points="3140,60 3190,60" fill="none" stroke="#c4302b" stroke-width="2.2" marker-end="url(#a_human)"/>
+<text x="3198" y="65" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="15" font-weight="normal" fill="#c4302b" text-anchor="start">人工确认</text>
+<polyline points="3400,60 3450,60" fill="none" stroke="#8c959f" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_dev)"/>
+<text x="3458" y="65" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="15" font-weight="normal" fill="#8c959f" text-anchor="start">开发 / 测试用</text>
+<rect x="60" y="140" width="300" height="128" rx="8" fill="#fffbe6" stroke="#9a6700" stroke-width="2"/>
+<rect x="60" y="140" width="300" height="28" rx="8" fill="#9a6700"/>
+<rect x="60" y="160" width="300" height="8" fill="#9a6700"/>
+<text x="70" y="161" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">用户 / 终端</text>
+<text x="70" y="188" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">中文指令:</text>
+<text x="70" y="209" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  左手抵达红色积木上空</text>
+<text x="70" y="230" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">按 y 确认每次运动</text>
+<text x="70" y="251" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">守着急停</text>
+<rect x="390" y="154" width="600" height="196" rx="12" fill="none" stroke="#6e7781" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="404" y="140" width="141" height="26" rx="6" fill="#ffffff"/>
+<text x="414" y="159" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#6e7781" text-anchor="start">项目根目录 /</text>
+<rect x="410" y="174" width="560" height="149" rx="8" fill="#f5f5f5" stroke="#6e7781" stroke-width="2"/>
+<rect x="410" y="174" width="560" height="28" rx="8" fill="#6e7781"/>
+<rect x="410" y="194" width="560" height="8" fill="#6e7781"/>
+<text x="420" y="195" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">根目录文件</text>
+<text x="420" y="222" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">.env        DEEPSEEK_API_KEY(gitignore)</text>
+<text x="420" y="243" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">run.txt     真机启动与运行命令</text>
+<text x="420" y="264" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">README.md   项目介绍    devlog.md 开发日志</text>
+<text x="420" y="285" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">.gitignore</text>
+<text x="420" y="306" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#57606a" text-anchor="start">· 每个目录都有 README.md</text>
+<rect x="1020" y="154" width="900" height="196" rx="12" fill="none" stroke="#6e7781" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="1034" y="140" width="112" height="26" rx="6" fill="#ffffff"/>
+<text x="1044" y="159" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#6e7781" text-anchor="start">configs/</text>
+<rect x="1040" y="174" width="300" height="128" rx="8" fill="#f5f5f5" stroke="#6e7781" stroke-width="2"/>
+<rect x="1040" y="174" width="300" height="28" rx="8" fill="#6e7781"/>
+<rect x="1040" y="194" width="300" height="8" fill="#6e7781"/>
+<text x="1050" y="195" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">harness.yaml</text>
+<text x="1050" y="222" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">llm:    base_url model key</text>
+<text x="1050" y="243" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">agent:  max_steps 8</text>
+<text x="1050" y="264" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">motion: 速度 工作范围 上限</text>
+<text x="1050" y="285" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">vision: 帧数 大小阈值</text>
+<rect x="1350" y="174" width="260" height="107" rx="8" fill="#f5f5f5" stroke="#6e7781" stroke-width="2"/>
+<rect x="1350" y="174" width="260" height="28" rx="8" fill="#6e7781"/>
+<rect x="1350" y="194" width="260" height="8" fill="#6e7781"/>
+<text x="1360" y="195" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">colors.yaml</text>
+<text x="1360" y="222" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">颜色名 → HSV 范围</text>
+<text x="1360" y="243" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">red green ... 紫色杯子</text>
+<text x="1360" y="264" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">hsv_pick.py 写入</text>
+<rect x="1620" y="174" width="280" height="107" rx="8" fill="#f5f5f5" stroke="#6e7781" stroke-width="2"/>
+<rect x="1620" y="174" width="280" height="28" rx="8" fill="#6e7781"/>
+<rect x="1620" y="194" width="280" height="8" fill="#6e7781"/>
+<text x="1630" y="195" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">poses.yaml</text>
+<text x="1630" y="222" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">位姿名 → 22 个关节角</text>
+<text x="1630" y="243" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">find / look / zero</text>
+<text x="1630" y="264" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">groups: body head 两臂</text>
+<rect x="1950" y="154" width="430" height="196" rx="12" fill="none" stroke="#8c959f" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="1964" y="140" width="312" height="26" rx="6" fill="#ffffff"/>
+<text x="1974" y="159" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#8c959f" text-anchor="start">tests/  (pytest,不需要 ROS)</text>
+<rect x="1970" y="174" width="390" height="128" rx="8" fill="#f5f5f5" stroke="#8c959f" stroke-width="2"/>
+<rect x="1970" y="174" width="390" height="28" rx="8" fill="#8c959f"/>
+<rect x="1970" y="194" width="390" height="8" fill="#8c959f"/>
+<text x="1980" y="195" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">3 个测试文件</text>
+<text x="1980" y="222" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">test_objects.py      27 个:定位 靠近 颜色</text>
+<text x="1980" y="243" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">test_motion_tools.py 21 个:手臂 关节 位姿</text>
+<text x="1980" y="264" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">test_motion.py        8 个:IK 绕障(需 URDF)</text>
+<text x="1980" y="285" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">ScriptedLLM:假模型按剧本回复</text>
+<rect x="40" y="470" width="1880" height="230" rx="12" fill="none" stroke="#d4a72c" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="54" y="456" width="251" height="26" rx="6" fill="#ffffff"/>
+<text x="64" y="475" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#d4a72c" text-anchor="start">scripts/  (命令行入口)</text>
+<rect x="60" y="494" width="480" height="170" rx="8" fill="#fff8e6" stroke="#d4a72c" stroke-width="2"/>
+<rect x="60" y="494" width="480" height="28" rx="8" fill="#d4a72c"/>
+<rect x="60" y="514" width="480" height="8" fill="#d4a72c"/>
+<text x="70" y="515" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">run_task.py</text>
+<text x="530" y="515" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="end">主入口</text>
+<text x="70" y="542" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">main()      解析 --real --plan-only</text>
+<text x="70" y="563" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">load_env()  .env → 环境变量</text>
+<text x="70" y="584" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">load_poses()   poses.yaml</text>
+<text x="70" y="605" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">run_one(task)  每条指令一个新 Gateway</text>
+<text x="70" y="626" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">ask_user(prompt) → 输入 y ?</text>
+<text x="70" y="647" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#57606a" text-anchor="start">· 写 traces/&lt;时间&gt;.jsonl</text>
+<rect x="560" y="494" width="420" height="128" rx="8" fill="#fff8e6" stroke="#d4a72c" stroke-width="2"/>
+<rect x="560" y="494" width="420" height="28" rx="8" fill="#d4a72c"/>
+<rect x="560" y="514" width="420" height="8" fill="#d4a72c"/>
+<text x="570" y="515" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">goto_pose.py</text>
+<text x="570" y="542" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">main()  全身到录好的位姿</text>
+<text x="570" y="563" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">load_poses()  joint_limits(urdf)</text>
+<text x="570" y="584" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">→ WholeBody.goto + JointDetour</text>
+<text x="570" y="605" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#57606a" text-anchor="start">· 不经过大模型</text>
+<rect x="1000" y="494" width="440" height="128" rx="8" fill="#fff8e6" stroke="#d4a72c" stroke-width="2"/>
+<rect x="1000" y="494" width="440" height="28" rx="8" fill="#d4a72c"/>
+<rect x="1000" y="514" width="440" height="8" fill="#d4a72c"/>
+<text x="1010" y="515" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">motion_cli.py</text>
+<text x="1010" y="542" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">main()  手臂交互命令行</text>
+<text x="1010" y="563" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">move / line / goto / detour</text>
+<text x="1010" y="584" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_target() _confirm_and_run()</text>
+<text x="1010" y="605" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">→ ArmMotion(不经过大模型)</text>
+<rect x="1460" y="494" width="440" height="128" rx="8" fill="#fff8e6" stroke="#d4a72c" stroke-width="2"/>
+<rect x="1460" y="494" width="440" height="28" rx="8" fill="#d4a72c"/>
+<rect x="1460" y="514" width="440" height="8" fill="#d4a72c"/>
+<text x="1470" y="515" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">hsv_pick.py</text>
+<text x="1470" y="542" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">main()  interactive()</text>
+<text x="1470" y="563" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">sample_at(像素) → HSV</text>
+<text x="1470" y="584" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">save() → save_color(colors.yaml)</text>
+<text x="1470" y="605" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#57606a" text-anchor="start">· 点选取色,左键点物体</text>
+<rect x="1960" y="494" width="420" height="128" rx="8" fill="#fffbe6" stroke="#9a6700" stroke-width="2"/>
+<rect x="1960" y="494" width="420" height="28" rx="8" fill="#9a6700"/>
+<rect x="1960" y="514" width="420" height="8" fill="#9a6700"/>
+<text x="1970" y="515" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">DeepSeek API(外部)</text>
+<text x="1970" y="542" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">POST /chat/completions</text>
+<text x="1970" y="563" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">model: deepseek-flash</text>
+<text x="1970" y="584" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">输入 messages + tools</text>
+<text x="1970" y="605" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">返回 content / tool_calls</text>
+<rect x="40" y="860" width="2340" height="420" rx="12" fill="none" stroke="#2f6fbd" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="54" y="846" width="439" height="26" rx="6" fill="#ffffff"/>
+<text x="64" y="865" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#2f6fbd" text-anchor="start">harness/  (核心:循环 · 工具说明 · 关卡)</text>
+<rect x="60" y="890" width="360" height="191" rx="8" fill="#eef6ff" stroke="#2f6fbd" stroke-width="2"/>
+<rect x="60" y="890" width="360" height="28" rx="8" fill="#2f6fbd"/>
+<rect x="60" y="910" width="360" height="8" fill="#2f6fbd"/>
+<text x="70" y="911" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">loop.py</text>
+<text x="410" y="911" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="end">Agent 循环</text>
+<text x="70" y="938" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">run_agent(task, llm, gateway,</text>
+<text x="70" y="959" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">          tools, max_steps, trace)</text>
+<text x="70" y="980" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  ├ log(kind, data) → trace</text>
+<text x="70" y="1001" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  └ 循环直到没有 tool_calls</text>
+<text x="70" y="1022" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_execute(call, gateway)</text>
+<text x="70" y="1043" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  json.loads(arguments)</text>
+<text x="70" y="1064" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">SYSTEM  系统提示词</text>
+<rect x="440" y="890" width="560" height="250" rx="12" fill="none" stroke="#2f8a3e" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="454" y="876" width="178" height="26" rx="6" fill="#ffffff"/>
+<text x="464" y="895" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#2f8a3e" text-anchor="start">harness/tools/</text>
+<rect x="455" y="912" width="260" height="170" rx="8" fill="#f0f9f1" stroke="#2f8a3e" stroke-width="2"/>
+<rect x="455" y="912" width="260" height="28" rx="8" fill="#2f8a3e"/>
+<rect x="455" y="932" width="260" height="8" fill="#2f8a3e"/>
+<text x="465" y="933" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">objects.py</text>
+<text x="465" y="960" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">make_tools(颜色, 位姿)</text>
+<text x="465" y="981" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_object_tools()</text>
+<text x="465" y="1002" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  locate_object</text>
+<text x="465" y="1023" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  get_left_end_pose</text>
+<text x="465" y="1044" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  approach_object</text>
+<text x="465" y="1065" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_tool(name, desc, props)</text>
+<rect x="725" y="912" width="260" height="170" rx="8" fill="#f0f9f1" stroke="#2f8a3e" stroke-width="2"/>
+<rect x="725" y="912" width="260" height="28" rx="8" fill="#2f8a3e"/>
+<rect x="725" y="932" width="260" height="8" fill="#2f8a3e"/>
+<text x="735" y="933" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">motion.py</text>
+<text x="735" y="960" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">make_motion_tools(位姿)</text>
+<text x="735" y="981" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  get_robot_state</text>
+<text x="735" y="1002" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  move_arm_end</text>
+<text x="735" y="1023" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  move_joints</text>
+<text x="735" y="1044" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  go_to_pose</text>
+<text x="735" y="1065" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">GROUP_TEXT 关节含义</text>
+<rect x="1020" y="890" width="560" height="296" rx="8" fill="#fff0f0" stroke="#c4302b" stroke-width="2"/>
+<rect x="1020" y="890" width="560" height="28" rx="8" fill="#c4302b"/>
+<rect x="1020" y="910" width="560" height="8" fill="#c4302b"/>
+<text x="1030" y="911" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">gateway.py  class Gateway</text>
+<text x="1570" y="911" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="end">关卡</text>
+<text x="1030" y="938" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">execute(name, args) → 按名字分派 handlers</text>
+<text x="1030" y="959" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_locate(color)      → self.target 存坐标</text>
+<text x="1030" y="980" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_end_pose()  _robot_state()      只读</text>
+<text x="1030" y="1001" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_approach(standoff, arm)  目标=物体+上方</text>
+<text x="1030" y="1022" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_move_arm_end(arm, offset_cm, rotate_deg)</text>
+<text x="1030" y="1043" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_move_joints(group, deltas/angles_deg)</text>
+<text x="1030" y="1064" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_go_to_pose(name, groups)</text>
+<text x="1030" y="1085" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_plan_and_run_joints(target) 限位检查</text>
+<text x="1030" y="1106" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_check_workspace()  _no_moves_left()</text>
+<text x="1030" y="1127" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_confirm_and_run(plan, prompt, info)</text>
+<text x="1030" y="1148" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  只规划?→ 停;confirm?→ execute</text>
+<text x="1030" y="1169" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#57606a" text-anchor="start">· 状态:target  target_time  moves</text>
+<rect x="1980" y="890" width="380" height="149" rx="8" fill="#eef6ff" stroke="#2f6fbd" stroke-width="2"/>
+<rect x="1980" y="890" width="380" height="28" rx="8" fill="#2f6fbd"/>
+<rect x="1980" y="910" width="380" height="8" fill="#2f6fbd"/>
+<text x="1990" y="911" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">llm.py  class DeepSeekLLM</text>
+<text x="1990" y="938" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">__init__(base_url, model,</text>
+<text x="1990" y="959" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">         api_key_env, thinking)</text>
+<text x="1990" y="980" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">chat(messages, tools) → reply</text>
+<text x="1990" y="1001" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  urllib POST,只挑需要的字段</text>
+<text x="1990" y="1022" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  保留 reasoning_content</text>
+<rect x="1600" y="890" width="360" height="128" rx="8" fill="#eef6ff" stroke="#2f6fbd" stroke-width="2"/>
+<rect x="1600" y="890" width="360" height="28" rx="8" fill="#2f6fbd"/>
+<rect x="1600" y="910" width="360" height="8" fill="#2f6fbd"/>
+<text x="1610" y="911" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">geometry.py</text>
+<text x="1610" y="938" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">rpy_deg_to_matrix(rpy)</text>
+<text x="1610" y="959" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">matrix_to_rpy_deg(R)</text>
+<text x="1610" y="980" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">rotate_rpy_deg(rpy, rotate)</text>
+<text x="1610" y="1001" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">rotation_between_deg(a, b)</text>
+<rect x="1600" y="1055" width="360" height="107" rx="8" fill="#eef6ff" stroke="#2f6fbd" stroke-width="2"/>
+<rect x="1600" y="1055" width="360" height="28" rx="8" fill="#2f6fbd"/>
+<rect x="1600" y="1075" width="360" height="8" fill="#2f6fbd"/>
+<text x="1610" y="1076" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">colors.py</text>
+<text x="1610" y="1103" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">load_colors(path) → {名: 范围}</text>
+<text x="1610" y="1124" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">save_color(path, 名, 范围)</text>
+<text x="1610" y="1145" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">range_from_samples(样本)</text>
+<rect x="40" y="1400" width="2340" height="320" rx="12" fill="none" stroke="#7a4cc2" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="54" y="1386" width="437" height="26" rx="6" fill="#ffffff"/>
+<text x="64" y="1405" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#7a4cc2" text-anchor="start">harness/backends/  (同一套方法,两种实现)</text>
+<rect x="60" y="1430" width="520" height="212" rx="8" fill="#f6f0ff" stroke="#7a4cc2" stroke-width="2"/>
+<rect x="60" y="1430" width="520" height="28" rx="8" fill="#7a4cc2"/>
+<rect x="60" y="1450" width="520" height="8" fill="#7a4cc2"/>
+<text x="70" y="1451" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">fake.py  class FakeBackend</text>
+<text x="570" y="1451" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="end">不需要 ROS</text>
+<text x="70" y="1478" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">locate_object(color, ranges)</text>
+<text x="70" y="1499" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">end_pose(arm)   left_end_xyz()</text>
+<text x="70" y="1520" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">joint_state()   joint_limits()</text>
+<text x="70" y="1541" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_arm_to(arm, target, rpy)</text>
+<text x="70" y="1562" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_left_to(target)</text>
+<text x="70" y="1583" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_joints(target, speed)</text>
+<text x="70" y="1604" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">execute(plan) → 改自己的状态</text>
+<text x="70" y="1625" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#57606a" text-anchor="start">· executed[] 测试用:确认真的没动</text>
+<rect x="600" y="1430" width="1100" height="254" rx="8" fill="#f6f0ff" stroke="#7a4cc2" stroke-width="2"/>
+<rect x="600" y="1430" width="1100" height="28" rx="8" fill="#7a4cc2"/>
+<rect x="600" y="1450" width="1100" height="8" fill="#7a4cc2"/>
+<text x="610" y="1451" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">ros.py  class RosBackend</text>
+<text x="1690" y="1451" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="end">真机</text>
+<text x="610" y="1478" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">__init__(vision, speed, poses): rclpy 节点 + ArmMotion + WholeBody + SensorNode,后台线程 spin</text>
+<text x="610" y="1499" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_wait_until_ready()  没有 /joint_states 或 move_group 就拒绝启动</text>
+<text x="610" y="1520" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">locate_object(color, ranges)  取 5 帧 → find_objects → merge_frames → 存 block_xyz</text>
+<text x="610" y="1541" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_save_debug_image() → traces/last_object.jpg    _publish_tf() → TF target_object</text>
+<text x="610" y="1562" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">end_pose(arm) → {xyz_m, rpy_deg}    joint_state()    joint_limits()  URDF</text>
+<text x="610" y="1583" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_arm_to(arm, target, rpy)  plan_cartesian 直线,不行 → plan_detour(via_then_rrt)</text>
+<text x="610" y="1604" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">_lowest_z(arm, path)  路径最低点    slow_down(plan, speed)  放慢到 5cm/s</text>
+<text x="610" y="1625" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_joints(target, speed)  WholeBody.plan + JointDetour</text>
+<text x="610" y="1646" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">execute(plan)  kind=arm → ArmMotion.execute;kind=joints → WholeBody.run</text>
+<text x="610" y="1667" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">close()  取消运动 → 停 spin → 销毁节点</text>
+<rect x="1720" y="1430" width="640" height="170" rx="8" fill="#f6f0ff" stroke="#7a4cc2" stroke-width="2"/>
+<rect x="1720" y="1430" width="640" height="28" rx="8" fill="#7a4cc2"/>
+<rect x="1720" y="1450" width="640" height="8" fill="#7a4cc2"/>
+<text x="1730" y="1451" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">color_object.py</text>
+<text x="1730" y="1478" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">color_mask(bgr, ranges) → 掩码</text>
+<text x="1730" y="1499" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">find_objects(bgr, depth, points,</text>
+<text x="1730" y="1520" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">             fx, ranges, cfg) → 候选</text>
+<text x="1730" y="1541" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">merge_frames(每帧, 最少帧数, 最大偏差,</text>
+<text x="1730" y="1562" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">             左手位置) → 离左手最近的物体</text>
+<text x="1730" y="1583" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#57606a" text-anchor="start">· 纯 numpy / OpenCV,不需要 ROS</text>
+<rect x="40" y="1850" width="1840" height="640" rx="12" fill="none" stroke="#1d8a8a" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="54" y="1836" width="747" height="26" rx="6" fill="#ffffff"/>
+<text x="64" y="1855" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1d8a8a" text-anchor="start">harness/motion/  (复制自 agi@g2_robot ecdfb5d:运动学 · 规划 · 执行)</text>
+<rect x="60" y="1880" width="470" height="233" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="60" y="1880" width="470" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="60" y="1900" width="470" height="8" fill="#1d8a8a"/>
+<text x="70" y="1901" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">arm_motion.py  class ArmMotion</text>
+<text x="520" y="1901" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="end">手臂</text>
+<text x="70" y="1928" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_cartesian(arm, p, R) 积分笛卡尔直线</text>
+<text x="70" y="1949" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_detour(arm, p, R, planner)  绕障</text>
+<text x="70" y="1970" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_pose(arm, p, R)  IK + 五次多项式</text>
+<text x="70" y="1991" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">execute(Plan) → JTC action,等停稳</text>
+<text x="70" y="2012" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">pose(arm) → (p, R)   q_arm(arm)</text>
+<text x="70" y="2033" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">valid(arm, q)   path_clear(arm, path)</text>
+<text x="70" y="2054" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">obstacles_root()  octomap + 碰撞体</text>
+<text x="70" y="2075" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">cancel()  wait_settled()</text>
+<text x="70" y="2096" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class Plan: path traj note summary()</text>
+<rect x="545" y="1880" width="440" height="191" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="545" y="1880" width="440" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="545" y="1900" width="440" height="8" fill="#1d8a8a"/>
+<text x="555" y="1901" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">whole_body.py  class WholeBody</text>
+<text x="975" y="1901" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="13" font-weight="normal" fill="#ffffff" text-anchor="end">腰头双臂</text>
+<text x="555" y="1928" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan(target, speed, detour)</text>
+<text x="555" y="1949" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">   → JointPlan / 失败原因</text>
+<text x="555" y="1970" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">run(JointPlan) → 4 个 JTC 同时发</text>
+<text x="555" y="1991" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">goto() = plan + run</text>
+<text x="555" y="2012" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">snapshot()  _valid()  check_path()</text>
+<text x="555" y="2033" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">cancel()   _settle() 实测到位</text>
+<text x="555" y="2054" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class JointPlan: qs Ts summary()</text>
+<rect x="1000" y="1880" width="330" height="170" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1000" y="1880" width="330" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1000" y="1900" width="330" height="8" fill="#1d8a8a"/>
+<text x="1010" y="1901" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">joint_detour.py</text>
+<text x="1010" y="1928" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class JointDetour</text>
+<text x="1010" y="1949" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  plan(q0, target) → 折线</text>
+<text x="1010" y="1970" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  _via()  经录好位姿中转</text>
+<text x="1010" y="1991" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  _rrt()  关节 RRT-Connect</text>
+<text x="1010" y="2012" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  _shortcut()  捷径平滑</text>
+<text x="1010" y="2033" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">path_note()</text>
+<rect x="1345" y="1880" width="250" height="149" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1345" y="1880" width="250" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1345" y="1900" width="250" height="8" fill="#1d8a8a"/>
+<text x="1355" y="1901" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">kin.py</text>
+<text x="1355" y="1928" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class ChainKin</text>
+<text x="1355" y="1949" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  fk(q)  jacobian(q)  ik()</text>
+<text x="1355" y="1970" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">arm_kin(urdf, arm)</text>
+<text x="1355" y="1991" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">body_kin(urdf)  腰链</text>
+<text x="1355" y="2012" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">dls_pinv()</text>
+<rect x="1610" y="1880" width="255" height="149" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1610" y="1880" width="255" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1610" y="1900" width="255" height="8" fill="#1d8a8a"/>
+<text x="1620" y="1901" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">algorithms.py</text>
+<text x="1620" y="1928" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class ArmSolver</text>
+<text x="1620" y="1949" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  solve() 积分笛卡尔</text>
+<text x="1620" y="1970" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  ik()  lm()  pull_near()</text>
+<text x="1620" y="1991" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">polish()  path_sane()</text>
+<text x="1620" y="2012" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">rpy_to_mat()  interp()</text>
+<rect x="60" y="2150" width="880" height="250" rx="12" fill="none" stroke="#1d8a8a" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="74" y="2136" width="454" height="26" rx="6" fill="#ffffff"/>
+<text x="84" y="2155" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1d8a8a" text-anchor="start">planners/  (绕障规划器,默认 via_then_rrt)</text>
+<rect x="75" y="2172" width="280" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="75" y="2172" width="280" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="75" y="2192" width="280" height="8" fill="#1d8a8a"/>
+<text x="85" y="2193" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">via_then_rrt.py</text>
+<text x="85" y="2220" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">ViaThenRRT.plan(req)</text>
+<text x="85" y="2241" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  先模板,不通再 RRT</text>
+<rect x="365" y="2172" width="280" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="365" y="2172" width="280" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="365" y="2192" width="280" height="8" fill="#1d8a8a"/>
+<text x="375" y="2193" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">via_points.py</text>
+<text x="375" y="2220" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">try_templates()</text>
+<text x="375" y="2241" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  V / 梯形 / U 型绕行</text>
+<rect x="655" y="2172" width="270" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="655" y="2172" width="270" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="655" y="2192" width="270" height="8" fill="#1d8a8a"/>
+<text x="665" y="2193" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">ee_rrt.py</text>
+<text x="665" y="2220" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">EERRT.plan()  rrt()</text>
+<text x="665" y="2241" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  末端空间 RRT</text>
+<rect x="75" y="2282" width="280" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="75" y="2282" width="280" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="75" y="2302" width="280" height="8" fill="#1d8a8a"/>
+<text x="85" y="2303" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">_edges.py</text>
+<text x="85" y="2330" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">EdgeChecker</text>
+<text x="85" y="2351" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  edge() shortcut() direct()</text>
+<rect x="365" y="2282" width="280" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="365" y="2282" width="280" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="365" y="2302" width="280" height="8" fill="#1d8a8a"/>
+<text x="375" y="2303" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">_types.py  __init__.py</text>
+<text x="375" y="2330" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">PlanRequest  PlanResult</text>
+<text x="375" y="2351" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">Planner  DEFAULT</text>
+<rect x="655" y="2282" width="270" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="655" y="2282" width="270" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="655" y="2302" width="270" height="8" fill="#1d8a8a"/>
+<text x="665" y="2303" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">_registry.py</text>
+<text x="665" y="2330" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">register()  discover()</text>
+<text x="665" y="2351" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">AlgorithmSpec</text>
+<rect x="960" y="2150" width="560" height="250" rx="12" fill="none" stroke="#1d8a8a" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="974" y="2136" width="338" height="26" rx="6" fill="#ffffff"/>
+<text x="984" y="2155" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1d8a8a" text-anchor="start">ik_lab/  (轨迹计时 · 终点精修)</text>
+<rect x="975" y="2172" width="260" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="975" y="2172" width="260" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="975" y="2192" width="260" height="8" fill="#1d8a8a"/>
+<text x="985" y="2193" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">planning.py</text>
+<text x="985" y="2220" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">make_trajectory()</text>
+<text x="985" y="2241" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_motion()</text>
+<rect x="1245" y="2172" width="260" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1245" y="2172" width="260" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1245" y="2192" width="260" height="8" fill="#1d8a8a"/>
+<text x="1255" y="2193" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">kinematics.py</text>
+<text x="1255" y="2220" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">solve_pose()</text>
+<text x="1255" y="2241" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">rotation_vector()</text>
+<rect x="975" y="2282" width="260" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="975" y="2282" width="260" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="975" y="2302" width="260" height="8" fill="#1d8a8a"/>
+<text x="985" y="2303" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">pose_task.py</text>
+<text x="985" y="2330" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">orientation_residual()</text>
+<text x="985" y="2351" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">task_nullspace()</text>
+<rect x="1245" y="2282" width="260" height="86" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1245" y="2282" width="260" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1245" y="2302" width="260" height="8" fill="#1d8a8a"/>
+<text x="1255" y="2303" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">algorithms/_adaptive_ik.py</text>
+<text x="1255" y="2330" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">solve_adaptive()</text>
+<text x="1255" y="2351" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  自适应 LM</text>
+<rect x="1540" y="2150" width="325" height="107" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1540" y="2150" width="325" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1540" y="2170" width="325" height="8" fill="#1d8a8a"/>
+<text x="1550" y="2171" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">joints.py</text>
+<text x="1550" y="2198" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">GROUPS: 4 组 → JTC 名 + 关节</text>
+<text x="1550" y="2219" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  body head left_arm right_arm</text>
+<text x="1550" y="2240" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">parse_groups(text)</text>
+<rect x="1540" y="2270" width="325" height="65" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1540" y="2270" width="325" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1540" y="2290" width="325" height="8" fill="#1d8a8a"/>
+<text x="1550" y="2291" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">octomap_util.py</text>
+<text x="1550" y="2318" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">occupied_centers(octomap)</text>
+<rect x="1540" y="2337" width="325" height="65" rx="8" fill="#eef9f9" stroke="#1d8a8a" stroke-width="2"/>
+<rect x="1540" y="2337" width="325" height="28" rx="8" fill="#1d8a8a"/>
+<rect x="1540" y="2357" width="325" height="8" fill="#1d8a8a"/>
+<text x="1550" y="2358" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">voxel_util.py</text>
+<text x="1550" y="2385" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">quat_to_mat()  dilate()</text>
+<rect x="1910" y="1850" width="470" height="640" rx="12" fill="none" stroke="#b0418a" stroke-width="2" stroke-dasharray="8 5"/>
+<rect x="1924" y="1836" width="370" height="26" rx="6" fill="#ffffff"/>
+<text x="1934" y="1855" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#b0418a" text-anchor="start">harness/perception/  (头部 RGBD)</text>
+<rect x="1930" y="1880" width="430" height="149" rx="8" fill="#fdf2fa" stroke="#b0418a" stroke-width="2"/>
+<rect x="1930" y="1880" width="430" height="28" rx="8" fill="#b0418a"/>
+<rect x="1930" y="1900" width="430" height="8" fill="#b0418a"/>
+<text x="1940" y="1901" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">rgbd_source.py</text>
+<text x="1940" y="1928" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class RosSource(sensor)</text>
+<text x="1940" y="1949" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  next() → (bgr, depth_mm,</text>
+<text x="1940" y="1970" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">            T_base_head, stamp)</text>
+<text x="1940" y="1991" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  按时间戳对齐 彩色/深度/头部 TF</text>
+<text x="1940" y="2012" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class DatasetSource  离线回放</text>
+<rect x="1930" y="2055" width="430" height="107" rx="8" fill="#fdf2fa" stroke="#b0418a" stroke-width="2"/>
+<rect x="1930" y="2055" width="430" height="28" rx="8" fill="#b0418a"/>
+<rect x="1930" y="2075" width="430" height="8" fill="#b0418a"/>
+<text x="1940" y="2076" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">sensor_node.py</text>
+<text x="1940" y="2103" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class SensorNode</text>
+<text x="1940" y="2124" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  open()  close()  destroy()</text>
+<text x="1940" y="2145" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  独立线程 spin 相机订阅</text>
+<rect x="1930" y="2185" width="430" height="107" rx="8" fill="#fdf2fa" stroke="#b0418a" stroke-width="2"/>
+<rect x="1930" y="2185" width="430" height="28" rx="8" fill="#b0418a"/>
+<rect x="1930" y="2205" width="430" height="8" fill="#b0418a"/>
+<text x="1940" y="2206" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">scene3d.py</text>
+<text x="1940" y="2233" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">class Rgbd</text>
+<text x="1940" y="2254" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  points_base(depth, T)</text>
+<text x="1940" y="2275" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">  → 每个像素的 base_link 坐标</text>
+<rect x="1930" y="2315" width="430" height="86" rx="8" fill="#fdf2fa" stroke="#b0418a" stroke-width="2"/>
+<rect x="1930" y="2315" width="430" height="28" rx="8" fill="#b0418a"/>
+<rect x="1930" y="2335" width="430" height="8" fill="#b0418a"/>
+<text x="1940" y="2336" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">calib.py</text>
+<text x="1940" y="2363" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">CALIB  相机内外参</text>
+<text x="1940" y="2384" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">read_gdk_calib()</text>
+<rect x="40" y="2600" width="2340" height="180" rx="12" fill="none" stroke="#d1661a" stroke-width="2"/>
+<rect x="54" y="2586" width="79" height="26" rx="6" fill="#ffffff"/>
+<text x="64" y="2605" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#d1661a" text-anchor="start">ROS 2</text>
+<text x="60" y="2760" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#d1661a" text-anchor="start">hardware.launch.py end_effector:=true use_head_cloud:=false  (由人启动,AI 不启动;use_head_cloud:=false 时没有 octomap,规划器看不到桌子)</text>
+<rect x="60" y="2630" width="318" height="65" rx="8" fill="#fff4e8" stroke="#d1661a" stroke-width="2"/>
+<rect x="60" y="2630" width="318" height="28" rx="8" fill="#d1661a"/>
+<rect x="60" y="2650" width="318" height="8" fill="#d1661a"/>
+<text x="70" y="2651" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">/joint_states</text>
+<text x="70" y="2678" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">JointState  BEST_EFFORT</text>
+<rect x="386" y="2630" width="318" height="65" rx="8" fill="#fff4e8" stroke="#d1661a" stroke-width="2"/>
+<rect x="386" y="2630" width="318" height="28" rx="8" fill="#d1661a"/>
+<rect x="386" y="2650" width="318" height="8" fill="#d1661a"/>
+<text x="396" y="2651" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">/robot_description</text>
+<text x="396" y="2678" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">URDF  TRANSIENT_LOCAL</text>
+<rect x="712" y="2630" width="318" height="65" rx="8" fill="#fff4e8" stroke="#d1661a" stroke-width="2"/>
+<rect x="712" y="2630" width="318" height="28" rx="8" fill="#d1661a"/>
+<rect x="712" y="2650" width="318" height="8" fill="#d1661a"/>
+<text x="722" y="2651" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">/check_state_validity</text>
+<text x="722" y="2678" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">MoveIt 整机碰撞检查</text>
+<rect x="1038" y="2630" width="318" height="65" rx="8" fill="#fff4e8" stroke="#d1661a" stroke-width="2"/>
+<rect x="1038" y="2630" width="318" height="28" rx="8" fill="#d1661a"/>
+<rect x="1038" y="2650" width="318" height="8" fill="#d1661a"/>
+<text x="1048" y="2651" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">/get_planning_scene</text>
+<text x="1048" y="2678" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">octomap + 碰撞体</text>
+<rect x="1364" y="2630" width="318" height="65" rx="8" fill="#fff4e8" stroke="#d1661a" stroke-width="2"/>
+<rect x="1364" y="2630" width="318" height="28" rx="8" fill="#d1661a"/>
+<rect x="1364" y="2650" width="318" height="8" fill="#d1661a"/>
+<text x="1374" y="2651" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">4 × FollowJointTrajectory</text>
+<text x="1374" y="2678" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">body/head/left_arm/right_arm</text>
+<rect x="1690" y="2630" width="318" height="65" rx="8" fill="#fff4e8" stroke="#d1661a" stroke-width="2"/>
+<rect x="1690" y="2630" width="318" height="28" rx="8" fill="#d1661a"/>
+<rect x="1690" y="2650" width="318" height="8" fill="#d1661a"/>
+<text x="1700" y="2651" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">/gdk/camera/head_color</text>
+<text x="1700" y="2678" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">head_depth + /gdk/tf</text>
+<rect x="2016" y="2630" width="318" height="65" rx="8" fill="#fff4e8" stroke="#d1661a" stroke-width="2"/>
+<rect x="2016" y="2630" width="318" height="28" rx="8" fill="#d1661a"/>
+<rect x="2016" y="2650" width="318" height="8" fill="#d1661a"/>
+<text x="2026" y="2651" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#ffffff" text-anchor="start">/tf</text>
+<text x="2026" y="2678" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">target_object(本项目发布)</text>
+<text x="2210" y="2765" font-family="Noto Sans CJK SC, Noto Sans CJK TC, sans-serif" font-size="18" font-weight="bold" fill="#d1661a" text-anchor="start">→ 智元 G2</text>
+<polyline points="180.0,268 180,494" fill="none" stroke="#c4302b" stroke-width="2.2" marker-end="url(#a_human)"/>
+<rect x="185" y="426" width="81.0" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="190" y="440" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#c4302b" text-anchor="start">task 文本</text>
+<polyline points="494.0,323 494,494" fill="none" stroke="#2f6fbd" stroke-width="2.2" marker-end="url(#a_data)"/>
+<rect x="497" y="406" width="67.4" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="502" y="420" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#2f6fbd" text-anchor="start">API key</text>
+<polyline points="1130.0,302 1130,410 420,410 420,494" fill="none" stroke="#2f6fbd" stroke-width="2.2" marker-end="url(#a_data)"/>
+<rect x="995" y="390" width="83.80000000000001" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1000" y="404" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#2f6fbd" text-anchor="start">cfg(dict)</text>
+<polyline points="1428.0,281 1428,430 450,430 450,494" fill="none" stroke="#2f6fbd" stroke-width="2.2" marker-end="url(#a_data)"/>
+<rect x="1295" y="410" width="59.2" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1300" y="424" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#2f6fbd" text-anchor="start">colors</text>
+<polyline points="1704.0,281 1704,450 480,450 480,494" fill="none" stroke="#2f6fbd" stroke-width="2.2" marker-end="url(#a_data)"/>
+<rect x="1575" y="430" width="51.0" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1580" y="444" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#2f6fbd" text-anchor="start">poses</text>
+<polyline points="132.0,664 132,890" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="135" y="754" width="173.99999999999997" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="140" y="768" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">run_agent(task, llm,</text>
+<rect x="135" y="772" width="190.39999999999995" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="140" y="786" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">gateway, tools, trace)</text>
+<polyline points="324.0,664 324,830 1150,830 1150,890" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="695" y="774" width="247.79999999999987" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="700" y="788" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">Gateway(backend, cfg, colors,</text>
+<rect x="695" y="792" width="296.99999999999983" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="700" y="806" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">confirm=ask_user, plan_only, poses)</text>
+<polyline points="468.0,664 468,850 585,850 585,912" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="595" y="832" width="214.99999999999991" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="600" y="846" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">make_tools(colors, poses)</text>
+<polyline points="1496.0,890 1496,755 520,755 520.8,664" fill="none" stroke="#c4302b" stroke-width="2.2" marker-end="url(#a_human)"/>
+<rect x="995" y="734" width="351.3999999999998" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1000" y="748" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#c4302b" text-anchor="start">confirm(规划摘要) → ask_user() → 人按 y ?</text>
+<polyline points="455,946.0 420,946" fill="none" stroke="#2f6fbd" stroke-width="2.2" marker-end="url(#a_data)"/>
+<rect x="419" y="1108" width="51.0" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="424" y="1122" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#2f6fbd" text-anchor="start">TOOLS</text>
+<polyline points="150.0,1081 150,1240 2170,1240 2170.0,1039" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="1035" y="1218" width="640.0000000000002" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1040" y="1232" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">llm.chat(messages, tools) → reply {content, tool_calls[id, name, arguments]}</text>
+<polyline points="2170.0,890 2170.0,622" fill="none" stroke="#2f6fbd" stroke-width="2.2" marker-end="url(#a_data)" marker-start="url(#a_data_s)"/>
+<rect x="2180" y="776" width="92.00000000000001" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="2185" y="790" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#2f6fbd" text-anchor="start">HTTPS JSON</text>
+<rect x="2180" y="794" width="131.60000000000002" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="2185" y="808" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#2f6fbd" text-anchor="start">(key 在 header)</text>
+<polyline points="330.0,1081 330,1170 1020,1170" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="465" y="1148" width="352.9999999999998" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="470" y="1162" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">gateway.execute(name, args) → result dict</text>
+<polyline points="1580,964.0 1600,969.36" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<polyline points="1300.0,1186 1300,1430" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="1307" y="1312" width="464.9999999999996" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1312" y="1326" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">locate_object · end_pose · joint_state · joint_limits</text>
+<rect x="1307" y="1330" width="285.99999999999983" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1312" y="1344" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_arm_to · plan_joints → plan</text>
+<rect x="1307" y="1348" width="221.7999999999999" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1312" y="1362" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">execute(plan) → {ok, msg}</text>
+<polyline points="1087.2,1186 1087,1390 320,1390 320,1430" fill="none" stroke="#8c959f" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_dev)"/>
+<rect x="355" y="1370" width="137.00000000000003" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="360" y="1384" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#8c959f" text-anchor="start">测试 / 无 --real</text>
+<polyline points="1700,1460.48 1720,1450.4" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<polyline points="1568.0,1684 1568,1820 2145,1820 2145,1880" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="1595" y="1798" width="475.9999999999996" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1600" y="1812" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">RosSource.next() → bgr, depth, T_base_head;points_base()</text>
+<polyline points="732.0,1684 732,1790 295,1790 295,1880" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="115" y="1770" width="418.5999999999997" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="120" y="1784" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan_cartesian / plan_detour → Plan;execute(Plan)</text>
+<polyline points="1040.0,1684 1040,1820 765,1820 765,1880" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="775" y="1800" width="426.79999999999967" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="780" y="1814" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#1f2328" text-anchor="start">plan(target, speed, JointDetour) → JointPlan;run()</text>
+<polyline points="248.0,2113 248,2172" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="253" y="2121" width="213.5999999999999" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="258" y="2135" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="13" font-weight="normal" fill="#1f2328" text-anchor="start">PlanRequest → PlanResult</text>
+<polyline points="985,1937.3 1000,1931.0" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<polyline points="219,2630 219,2490" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)"/>
+<rect x="224" y="2516" width="55" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="229" y="2530" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#d1661a" text-anchor="start">关节角</text>
+<polyline points="545,2630 545,2490" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)"/>
+<rect x="550" y="2516" width="42.8" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="555" y="2530" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#d1661a" text-anchor="start">URDF</text>
+<polyline points="871,2490 871,2630" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)" marker-start="url(#a_ros_s)"/>
+<rect x="876" y="2516" width="135.60000000000002" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="881" y="2530" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#d1661a" text-anchor="start">关节角 → valid?</text>
+<polyline points="1197,2490 1197,2630" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)" marker-start="url(#a_ros_s)"/>
+<rect x="1202" y="2516" width="137.0" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1207" y="2530" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#d1661a" text-anchor="start">octomap / 碰撞体</text>
+<polyline points="1523,2490 1523,2630" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)" marker-start="url(#a_ros_s)"/>
+<rect x="1528" y="2516" width="131.4" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1533" y="2530" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#d1661a" text-anchor="start">轨迹目标 ↔ 结果</text>
+<polyline points="1960,2630 1960,2490" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)"/>
+<rect x="1965" y="2516" width="179.20000000000002" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="1970" y="2530" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#d1661a" text-anchor="start">彩色 + 深度 + 头部位姿</text>
+<polyline points="1520,1684 1520,1780 2395,1780 2395,2675 2342,2675" fill="none" stroke="#d1661a" stroke-width="2.2" marker-end="url(#a_ros)"/>
+<rect x="2245" y="1758" width="116.60000000000002" height="19" rx="3" fill="#ffffff" opacity="0.92"/>
+<text x="2250" y="1772" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="14" font-weight="normal" fill="#d1661a" text-anchor="start">_publish_tf()</text>
+<rect x="2420" y="130" width="1200" height="2640" rx="12" fill="none" stroke="#c4302b" stroke-width="2"/>
+<rect x="2434" y="116" width="631" height="26" rx="6" fill="#ffffff"/>
+<text x="2444" y="135" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#c4302b" text-anchor="start">时序:“左手抵达红色积木上空”(traces/20261109_015006.jsonl)</text>
+<rect x="2455" y="170" width="170" height="44" rx="8" fill="#ffffff" stroke="#1f2328" stroke-width="2"/>
+<text x="2540" y="199" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1f2328" text-anchor="middle">用户</text>
+<line x1="2540" y1="214" x2="2540" y2="2730" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="6 5"/>
+<rect x="2695" y="170" width="170" height="44" rx="8" fill="#ffffff" stroke="#1f2328" stroke-width="2"/>
+<text x="2780" y="199" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1f2328" text-anchor="middle">loop.py</text>
+<line x1="2780" y1="214" x2="2780" y2="2730" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="6 5"/>
+<rect x="2935" y="170" width="170" height="44" rx="8" fill="#ffffff" stroke="#1f2328" stroke-width="2"/>
+<text x="3020" y="199" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1f2328" text-anchor="middle">DeepSeek</text>
+<line x1="3020" y1="214" x2="3020" y2="2730" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="6 5"/>
+<rect x="3175" y="170" width="170" height="44" rx="8" fill="#ffffff" stroke="#1f2328" stroke-width="2"/>
+<text x="3260" y="199" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1f2328" text-anchor="middle">gateway.py</text>
+<line x1="3260" y1="214" x2="3260" y2="2730" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="6 5"/>
+<rect x="3415" y="170" width="170" height="44" rx="8" fill="#ffffff" stroke="#1f2328" stroke-width="2"/>
+<text x="3500" y="199" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="18" font-weight="bold" fill="#1f2328" text-anchor="middle">ros.py</text>
+<line x1="3500" y1="214" x2="3500" y2="2730" stroke="#8c959f" stroke-width="1.5" stroke-dasharray="6 5"/>
+<polyline points="2540,270.0 2774,270.0" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2568.4" y="246.0" width="183.2" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2572.4" y="261.0" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">1. 左手抵达红色积木上空</text>
+<polyline points="2780,376.52173913043475 3014,376.52173913043475" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2786.2" y="352.52173913043475" width="227.60000000000005" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2790.2" y="367.52173913043475" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">2. system + user + 工具列表</text>
+<polyline points="3020,483.04347826086956 2786,483.04347826086956" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="2763.4" y="459.04347826086956" width="273.2000000000001" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2767.4" y="474.04347826086956" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">3. 调用 locate_object(color=red)</text>
+<polyline points="2780,589.5652173913044 3254,589.5652173913044" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2843.8" y="565.5652173913044" width="352.39999999999986" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2847.8" y="580.5652173913044" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">4. execute(&quot;locate_object&quot;, {color: red})</text>
+<polyline points="3260,696.0869565217391 3494,696.0869565217391" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="3239.2" y="672.0869565217391" width="281.6000000000001" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="3243.2" y="687.0869565217391" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">5. locate_object(&quot;red&quot;, HSV 范围)</text>
+<polyline points="3500,802.6086956521739 3266,802.6086956521739" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="3258.4" y="778.6086956521739" width="243.2000000000001" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="3262.4" y="793.6086956521739" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">6. xyz=(0.790, 0.097, 0.767)</text>
+<polyline points="3260,909.1304347826087 2786,909.1304347826087" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="2988.4" y="885.1304347826087" width="63.2" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2992.4" y="900.1304347826087" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">7. 结果</text>
+<polyline points="2780,1015.6521739130435 3014,1015.6521739130435" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2819.2" y="991.6521739130435" width="161.60000000000002" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2823.2" y="1006.6521739130435" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">8. 追加工具结果,再问</text>
+<polyline points="3020,1122.1739130434783 2786,1122.1739130434783" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="2784.4" y="1098.1739130434783" width="231.2000000000001" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2788.4" y="1113.1739130434783" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">9. 调用 get_left_end_pose()</text>
+<polyline points="2780,1228.695652173913 3254,1228.695652173913" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2948.8" y="1204.695652173913" width="142.40000000000003" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2952.8" y="1219.695652173913" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">10. execute(...)</text>
+<polyline points="3260,1335.2173913043478 2786,1335.2173913043478" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="2894.2" y="1311.2173913043478" width="251.6000000000001" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2898.2" y="1326.2173913043478" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">11. xyz=(0.677, 0.392, 1.100)</text>
+<polyline points="2780,1441.7391304347825 3014,1441.7391304347825" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2864.2" y="1417.7391304347825" width="71.6" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2868.2" y="1432.7391304347825" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">12. 再问</text>
+<polyline points="3020,1548.2608695652175 2786,1548.2608695652175" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="2788.6" y="1524.2608695652175" width="222.8000000000001" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2792.6" y="1539.2608695652175" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">13. 调用 approach_object()</text>
+<polyline points="2780,1654.7826086956522 3254,1654.7826086956522" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2948.8" y="1630.7826086956522" width="142.40000000000003" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2952.8" y="1645.7826086956522" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">14. execute(...)</text>
+<polyline points="3260,1761.304347826087 3330,1761.304347826087 3330,1789.304347826087 3266,1789.304347826087" fill="none" stroke="#c4302b" stroke-width="2.2" marker-end="url(#a_human)"/>
+<text x="3340" y="1779.304347826087" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="16" font-weight="bold" fill="#c4302b" text-anchor="start">15. 算目标点 + 7 项检查</text>
+<polyline points="3260,1867.8260869565217 3494,1867.8260869565217" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="3256.0" y="1843.8260869565217" width="248.00000000000009" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="3260.0" y="1858.8260869565217" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">16. plan_arm_to(&quot;left&quot;, 目标)</text>
+<polyline points="3260,1974.3478260869565 2546,1974.3478260869565" fill="none" stroke="#c4302b" stroke-width="2.2" marker-end="url(#a_human)"/>
+<rect x="2821.6" y="1950.3478260869565" width="156.8" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2825.6" y="1965.3478260869565" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#c4302b" text-anchor="start">17. 打印规划,等待 y</text>
+<polyline points="2540,2080.869565217391 3254,2080.869565217391" fill="none" stroke="#c4302b" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_human)"/>
+<rect x="2875.0" y="2056.869565217391" width="50.0" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2879.0" y="2071.869565217391" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#c4302b" text-anchor="start">18. y</text>
+<polyline points="3260,2187.391304347826 3494,2187.391304347826" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="3304.6" y="2163.391304347826" width="150.80000000000004" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="3308.6" y="2178.391304347826" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">19. execute(plan)</text>
+<polyline points="3500,2293.913043478261 3266,2293.913043478261" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="3299.8" y="2269.913043478261" width="160.40000000000003" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="3303.8" y="2284.913043478261" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">20. 到位,误差 0.1mm</text>
+<polyline points="2780,2400.4347826086955 3014,2400.4347826086955" fill="none" stroke="#1f2328" stroke-width="2.2" marker-end="url(#a_call)"/>
+<rect x="2864.2" y="2376.4347826086955" width="71.6" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2868.2" y="2391.4347826086955" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#1f2328" text-anchor="start">21. 再问</text>
+<polyline points="3020,2506.9565217391305 2786,2506.9565217391305" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="2788.3" y="2482.9565217391305" width="223.4" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2792.3" y="2497.9565217391305" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">22. 纯文字回答(没有工具调用)</text>
+<polyline points="2780,2613.478260869565 2546,2613.478260869565" fill="none" stroke="#2f6fbd" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#a_data)"/>
+<rect x="2609.2" y="2589.478260869565" width="101.6" height="20" rx="3" fill="#ffffff" opacity="0.9"/>
+<text x="2613.2" y="2604.478260869565" font-family="DejaVu Sans Mono, Noto Sans CJK SC, monospace" font-size="15" font-weight="normal" fill="#2f6fbd" text-anchor="start">23. 完成……</text>
+</svg>

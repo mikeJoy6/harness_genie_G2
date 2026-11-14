@@ -21,21 +21,21 @@ import rclpy
 import yaml
 from sensor_msgs.msg import JointState
 
-import config
-from kinematics import load_urdf
+import g2_config
+from g2_kinematics import load_urdf
 
 
 def refuse_robot_domain():
     """假数据绝不能发到真机的网络里:真机的 MoveIt 会把假关节角当真。"""
     domain = os.environ.get("ROS_DOMAIN_ID", "0")
-    if domain == config.ROBOT_DOMAIN_ID or os.environ.get("DEV_IP"):
+    if domain == g2_config.ROBOT_DOMAIN_ID or os.environ.get("DEV_IP"):
         sys.exit(f"当前 ROS_DOMAIN_ID={domain}(或已 source env_g2.sh),这是真机的网络。"
                  f"新开一个终端,只 source /opt/ros/humble/setup.bash,再 export ROS_DOMAIN_ID=77")
 
 
 def main():
     refuse_robot_domain()
-    urdf_xml = config.URDF_FILE.read_text(encoding="utf-8")
+    urdf_xml = g2_config.URDF_FILE.read_text(encoding="utf-8")
     joint_names = [j.name for j in load_urdf(urdf_xml).joints if j.type != "fixed"]
 
     # robot_state_publisher 是 ROS 自带的程序:给它 URDF,它就根据 /joint_states 算出并发布所有 link 的 TF。
@@ -49,8 +49,8 @@ def main():
 
     rclpy.init()
     node = rclpy.create_node("learning_fake_robot")
-    pub = node.create_publisher(JointState, config.JOINT_STATES_TOPIC, 10)
-    left_arm = config.JOINT_GROUPS["left_arm"]
+    pub = node.create_publisher(JointState, g2_config.JOINT_STATES_TOPIC, 10)
+    left_arm = g2_config.JOINT_GROUPS["left_arm"]
     print(f"假机器人已启动(ROS_DOMAIN_ID={os.environ.get('ROS_DOMAIN_ID', '0')}),"
           f"{len(joint_names)} 个关节,Ctrl+C 退出")
 

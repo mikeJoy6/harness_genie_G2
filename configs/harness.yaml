@@ -6,28 +6,99 @@ llm:
   timeout_s: 90
 
 agent:
-  max_steps: 8              # 一条指令最多问模型几轮
+  max_steps: 20             # 一条指令最多问模型几轮(每轮 = 模型回一次,可能调一个或多个工具)
 
 motion:
   speed_m_s: 0.05           # 末端速度
-  standoff_default_m: 0.25  # arm_l_end_link 停在积木正上方多高
-  standoff_min_m: 0.18      # 必须大于末端工具长度 0.128m
-  standoff_max_m: 0.40
-  max_travel_m: 0.70        # 一次最多移动多远
-  detection_max_age_s: 30   # 积木识别结果多久后作废
-  min_path_above_object_m: 0.13  # 整条路径上末端都要比物体高这么多,防止穿过桌面
-  max_moves_per_command: 1  # 一条指令最多动几次
-  workspace:                # 目标点必须在此范围内(base_link,米)
-    x: [0.20, 0.85]
-    y: [-0.20, 0.75]
-    z: [0.30, 1.30]
+  # 下面的“末端”都是手臂链末端 = TCP(tcp_*_link,夹爪尖;hardware.launch end_effector:=true 的 URDF 才有,
+  #   没有时退回法兰 arm_*_end_link,那时这些高度要加 0.128m)。2026-11-13 从法兰改到 TCP。
+  standoff_default_m: 0.12  # approach_object:夹爪尖停在物体上方多高(原法兰 0.25 = 夹爪尖 0.122)
+  standoff_min_m: 0.03
+  standoff_max_m: 0.30
+  max_travel_m: 1.70        # 一次最多移动多远
+  detection_max_age_s: 120  # find_objects 的结果多久后作废。没有底盘,base_link 不动,机器人自己动不会让坐标失效;
+                            # 只防“物体被人挪了”。30s 时“拿起来”整串走到 touch_object 已经过期(2026-11-13 改)
+  look_at_match_m: 0.15     # look_at_object 转头后再分割,离原位置这么近才算同一个物体
+  min_path_above_object_m: 0.02  # approach_object 整条路径上夹爪尖都要比物体高这么多,防止扫过桌面
+  max_moves_per_command: 8  # 一条指令最多动几次(夹爪开合也算)。“低头找鼠标,拿起来”= 转头+上方+张开+下探+闭合+上抬 = 6
+  confirm_motion: false     # true = 真机每次运动(含夹爪)前打印计划并等人按 y;false = 打印计划后直接执行
+                            # 临时打开:run_task.py / goto_pose.py / gripper_cli.py / motion_cli.py 加 --confirm
+  workspace:                # 末端目标点必须在此范围内(base_link,米);右臂是左臂的 y 镜像
+    left:
+      x: [0.20, 1.85]
+      y: [-0.20, 1.75]
+      z: [0.30, 2.30]
+    right:
+      x: [0.20, 1.85]
+      y: [-0.75, 1.20]
+      z: [0.30, 2.30]
+
+  # move_arm_end:手臂末端相对移动(先直线,不行再 via_then_rrt 绕障,和 pose_ab_search 同一套)
+  # 碰撞由规划器负责(整机自碰撞 + octomap + planning scene 碰撞体),这里只挡明显输错的数
+  max_offset_m: 0.60        # 一次相对移动最多多远
+  max_rotate_deg: 90        # 一次最多转多少度
+  max_path_dip_m: null      # 路径最低点最多比起点、终点中较低者再低多少;null = 不检查。
+                            # 桌面没进 octomap(相机没看到)时规划器不知道它在,这时可以设 0.05 兜底
+
+  # 手臂终点姿态(模型没指定转角时)按顺序试,第一个规划成功的就用(harness/motion/goal_pose.py):
+  #   keep 保持当前姿态;comfort 三角函数算的舒适姿态;free 只管位置、姿态随它变
+  goal_orientation:
+    approach_object: [comfort, keep, free]   # 去物体上方:先求舒服
+    move_arm_end: [keep, free]               # “上抬 10 厘米”:先保持手腕姿态,够不着再放松
+
+  arm_reach_m: 0.80         # 肩心到夹爪尖伸直最远 L1+L2+0.09+0.128 ≈ 0.83m;find_objects 用它报 reachable_by
+  touch:                    # touch_object:唯一会碰到物体、最后一段不查点云的运动(RosBackend.plan_touch)
+    default_gap_cm: 2       # 夹爪尖停在物体表面前多少厘米(物体坐标是可见表面的中位点)
+    max_gap_cm: 10
+    backoffs_cm: [5, 8, 12, 16, 20, 25, 30]   # 预接触点离接触点多远,从近到远试;最后一个 = 不查点云那段的最长距离
+                            # 不从 3cm 起:点云 3cm 一格,物体周围外扩后 3cm 处基本都“撞”
+    roll_offsets_deg: [0, 45, -45, 90, -90]   # 同一个预接触点,手腕绕工具轴依次多转这些角度再试(先不自转)
+    max_plan_tries: 4       # 验过的预接触点最多真规划几个(每个最坏 ~10s:直线 + 绕障 8s + 关节 RRT)
+    final_speed_m_s: 0.03   # 最后一段(不查点云)的末端速度
+    joint_speed_rad_s: 0.20 # 第一段末端规划不通、改走关节空间时的速度
+  body_assist:              # 手臂够不着时先动腰:按改动从小到大找前倾(body j3,正 = 往前)/ 转腰(j5)
+    enabled: true
+    max_lean_deg: 30
+    max_turn_deg: 20
+    speed_rad_s: 0.10
+  point_min_distance_m: 0.15   # point_at_object:末端离物体至少这么远才指(防止戳到人)
+  tool_axis_tolerance_deg: 15   # tool_axis(夹爪朝下等)严格做不到时,同一位置差这么多度以内也接受,并报实际差几度
+  tool_axis_retreat:        # move_arm_end 给了 tool_axis(“夹爪朝下”)但原地转不到:往身体方向后撤着转
+    max_m: 0.30             # 最多后撤多远
+    step_m: 0.05            # 每次多撤多少
+
+  # move_joints / go_to_pose:关节组运动(碰撞检查 + 经录好位姿中转 / 关节 RRT 绕行)
+  joint_speed_rad_s:        # 最慢关节的峰值速度;几个组一起动时取最小值
+    body: 0.10
+    head: 0.30
+    left_arm: 0.20
+    right_arm: 0.20
+  max_wait_s: 30            # wait 工具一次最多等多久
+  gripper:                  # 夹爪走 GDK(不在 ROS /joint_states 里),见 harness/backends/gripper_gdk.py
+    interface: servo        # servo:发 /gdk/joint_control(手臂插件也在用伺服,GDK 文档要求末端同走伺服);move_ee_pos:GDK 接口
+    servo_hold_s: 1.0       # servo 方式连续发多久
+    servo_rate_hz: 50
+    settle_s: 1.0           # 发完等多久再读状态
+    position_tol: 0.05      # 读得到位置时,离目标多近算到位(弧度;dahuan 是米)
+    read_position: false    # 这台机器人不发夹爪状态,读 get_end_state 只会阻塞 2s + 打一行 E 日志;以后固件支持再开
+  max_joint_delta_deg:      # move_joints 一次每个关节最多转多少度(go_to_pose 不受此限,位姿是人录的)
+    body: 45
+    head: 90
+    left_arm: 120
+    right_arm: 120
 
 vision:
-  frames: 5                 # 取几帧求中位数
-  min_good_frames: 3        # 至少几帧恰好看到一个积木
-  max_spread_m: 0.02        # 各帧结果的最大偏差
-  timeout_s: 4.0
-  min_pixels: 30
-  min_valid_depth_pixels: 15
-  min_size_m: 0.015         # 物体可见宽度范围,排除噪点和大物体
-  max_size_m: 0.25
+  timeout_s: 4.0            # 等一帧头部 RGBD(彩色 + 深度 + TF)最多多久
+  photo:                    # take_photo:存一张相机照片(机器人不动)
+    dir: photos             # 相对项目根目录;已 gitignore(照片里有人)
+    default_camera: head_wide
+    timeout_s: 3.0
+    cameras:                # 名字 → sensor_msgs/CompressedImage 话题(JPEG 原样存盘,不重新编码)
+      head_wide: /gdk/camera/head_stereo_left   # 头部双目左目,1920x1536,广角,适合拍人群
+      head: /gdk/camera/head_color              # 头部 RGBD 的彩色,640x400,和深度对齐
+      # 左右手相机话题 /gdk/camera/hand_{left,right}_color 存在,但 2026-11-13 实测收不到帧,暂不开放
+  sam3:                     # find_objects:按英文名词找物体(~/sam3_service/server.py 要先开着)
+    url: http://127.0.0.1:8765
+    timeout_s: 10.0         # 一次分割最多等多久(正常 0.4s,刚启动的第一张约 1s)
+    threshold: 0.5          # SAM 3 置信度阈值
+    min_valid_depth_pixels: 15   # 掩码里至少这么多像素有深度,才算出 3D 坐标

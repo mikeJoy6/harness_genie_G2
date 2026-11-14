@@ -19,7 +19,7 @@ from sensor_msgs.msg import JointState
 from std_msgs.msg import String
 from tf2_ros import Buffer, TransformListener
 
-import config
+import g2_config
 
 
 class RosIO:
@@ -35,19 +35,19 @@ class RosIO:
         self._urdf = None
 
         # 1. 关节角。GDK 用 BEST_EFFORT 发布,订阅必须用 sensor_data QoS,否则一条都收不到
-        self.node.create_subscription(JointState, config.JOINT_STATES_TOPIC, self._on_joints,
+        self.node.create_subscription(JointState, g2_config.JOINT_STATES_TOPIC, self._on_joints,
                                       qos_profile_sensor_data)
 
         # 2. URDF。TRANSIENT_LOCAL = 晚启动的订阅者也能收到之前发过的那条
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
-        self.node.create_subscription(String, config.URDF_TOPIC, self._on_urdf, latched)
+        self.node.create_subscription(String, g2_config.URDF_TOPIC, self._on_urdf, latched)
 
         # 3. TF。Buffer 存最近一段时间所有坐标变换,Listener 负责往里填
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self.node)
 
         # 4. MoveIt 碰撞检查服务的客户端
-        self.validity_client = self.node.create_client(GetStateValidity, config.VALIDITY_SERVICE)
+        self.validity_client = self.node.create_client(GetStateValidity, g2_config.VALIDITY_SERVICE)
 
         # 在后台线程里一直 spin:回调会自动被调用,主线程可以随时读数据
         self._executor = SingleThreadedExecutor()
@@ -66,7 +66,7 @@ class RosIO:
             self._urdf = msg.data
 
     # ---------------- 给其他文件用的方法 ----------------
-    def wait_ready(self, timeout_s=config.READY_TIMEOUT_S):
+    def wait_ready(self, timeout_s=g2_config.READY_TIMEOUT_S):
         """等到关节角和 URDF 都收到。超时就报错,并说清楚缺哪个。"""
         deadline = time.monotonic() + timeout_s
         while time.monotonic() < deadline:
@@ -74,8 +74,8 @@ class RosIO:
                 if self._joints and self._urdf:
                     return
             time.sleep(0.05)
-        missing = [name for name, got in [(config.JOINT_STATES_TOPIC, self._joints),
-                                          (config.URDF_TOPIC, self._urdf)] if not got]
+        missing = [name for name, got in [(g2_config.JOINT_STATES_TOPIC, self._joints),
+                                          (g2_config.URDF_TOPIC, self._urdf)] if not got]
         raise RuntimeError(f"{timeout_s}s 没收到 {', '.join(missing)}。机器人(或 fake_robot.py)在跑吗?"
                            f"ROS_DOMAIN_ID 对吗?")
 
@@ -98,14 +98,14 @@ class RosIO:
         with self._lock:
             return self._urdf
 
-    def lookup(self, parent, child, timeout_s=config.TF_TIMEOUT_S):
+    def lookup(self, parent, child, timeout_s=g2_config.TF_TIMEOUT_S):
         """查 child 在 parent 坐标系下的位姿。返回 (xyz 米, 四元数 [x, y, z, w])。"""
         tf = self.tf_buffer.lookup_transform(parent, child, rclpy.time.Time(),   # Time() = 最新的一份
                                              timeout=Duration(seconds=timeout_s))
         t, q = tf.transform.translation, tf.transform.rotation
         return [t.x, t.y, t.z], [q.x, q.y, q.z, q.w]
 
-    def check_collision(self, changes=None, timeout_s=config.SERVICE_TIMEOUT_S):
+    def check_collision(self, changes=None, timeout_s=g2_config.SERVICE_TIMEOUT_S):
         """问 MoveIt:当前姿态(再把 changes 里的关节改成新值)整台机器人会不会自碰撞。
 
         changes: {关节名: 弧度},只是假设,机器人不会动。
@@ -113,7 +113,7 @@ class RosIO:
         """
         if not self.validity_client.service_is_ready():
             return {"available": False, "valid": None, "contacts": [],
-                    "error": f"{config.VALIDITY_SERVICE} 不可用(move_group 没起?)"}
+                    "error": f"{g2_config.VALIDITY_SERVICE} 不可用(move_group 没起?)"}
 
         state = self.joints()
         state.update(changes or {})
@@ -141,10 +141,3 @@ class RosIO:
         self.node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-
-    # 支持 with RosIO() as ros: ... 离开 with 时自动 close()
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        self.close()

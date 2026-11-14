@@ -18,12 +18,12 @@
 
 | 顺序 | 文件 | 做什么 | 需要 ROS 在跑吗 |
 |---|---|---|---|
-| 1 | `config.py` | 所有话题名、link 名、关节名、超时 | 否 |
+| 1 | `g2_config.py` | 所有话题名、link 名、关节名、超时 | 否 |
 | 2 | `ros_io.py` | **唯一碰 rclpy 的文件**:订阅关节和 URDF、查 TF、调 MoveIt | 是 |
-| 3 | `kinematics.py` | 自己写的正运动学(FK),纯 numpy | 否 |
+| 3 | `g2_kinematics.py` | 自己写的正运动学(FK),纯 numpy | 否 |
 | 4 | `check_ros.py` | 5 步演示,把上面的东西逐个打印出来 | 是 |
-| 5 | `tools.py` | 给大模型的 3 个只读工具 | 是 |
-| 6 | `llm.py` + `agent.py` | 和第一阶段一样的循环,工具换成真的 | 是 |
+| 5 | `llm_tools.py` | 给大模型的 3 个只读工具 | 是 |
+| 6 | `deepseek_api.py` + `agent.py` | 和第一阶段一样的循环,工具换成真的 | 是 |
 | — | `fake_robot.py` | 没有真机时,发出和真机一样的话题 | — |
 
 ## 文件之间的关系
@@ -32,10 +32,10 @@
 
 ```mermaid
 flowchart LR
-    agent["agent.py"] --> llm["llm.py"] --> deepseek(("DeepSeek API"))
-    agent --> tools["tools.py"] --> rosio["ros_io.py"]
+    agent["agent.py"] --> llm["deepseek_api.py"] --> deepseek(("DeepSeek API"))
+    agent --> tools["llm_tools.py"] --> rosio["ros_io.py"]
     check["check_ros.py"] --> rosio
-    check --> kin["kinematics.py"]
+    check --> kin["g2_kinematics.py"]
     rosio <-.-> ros(("ROS2 网络"))
     fake["fake_robot.py"] -.-> ros
 ```
@@ -55,16 +55,16 @@ sequenceDiagram
     participant N as ROS2 网络
     participant P as 真机 或 fake_robot.py<br/>+ robot_state_publisher
 
-    M->>R: ros = RosIO("learning_agent")
+    M->>R: robot_io = RosIO("learning_agent")
     R->>R: rclpy.init()<br/>self.node = rclpy.create_node(node_name)
     R->>N: create_subscription(JointState, "/joint_states",<br/>self._on_joints, qos_profile_sensor_data)
     R->>N: create_subscription(String, "/robot_description",<br/>self._on_urdf, latched)
     R->>N: self.tf_buffer = Buffer()<br/>self.tf_listener = TransformListener(self.tf_buffer, self.node)
     R->>N: self.validity_client = create_client(GetStateValidity, "/check_state_validity")
     R->>T: self._spin_thread.start()  →  self._executor.spin()
-    R-->>M: 返回 ros
+    R-->>M: 返回 robot_io
 
-    M->>R: ros.wait_ready()
+    M->>R: robot_io.wait_ready()
     loop 每 0.05 秒看一次,最多 5 秒
         P-->>N: /robot_description(启动时只发一次,TRANSIENT_LOCAL)
         N-->>T: String 消息
@@ -87,18 +87,18 @@ sequenceDiagram
     autonumber
     actor U as 你
     participant A as agent.py<br/>main() / run_agent()
-    participant L as llm.py<br/>chat()
+    participant L as deepseek_api.py<br/>chat()
     participant D as DeepSeek API
     participant RT as agent.py<br/>run_tool()
-    participant H as tools.py<br/>get_link_position()
+    participant H as llm_tools.py<br/>get_link_position()
     participant R as ros_io.py<br/>RosIO.lookup()
     participant B as self.tf_buffer<br/>(后台一直在更新)
 
-    A->>A: key = llm.read_key()<br/>handlers = make_handlers(ros)
+    A->>A: key = deepseek_api.read_key()<br/>handlers = make_handlers(robot_io)
     U->>A: task = input("你: ")  → "左手末端在哪?"
     A->>A: messages = [{"role": "system", "content": SYSTEM},<br/>{"role": "user", "content": task}]
 
-    A->>L: reply = llm.chat(key, messages, TOOLS)
+    A->>L: reply = deepseek_api.chat(key, messages, TOOLS)
     L->>D: POST body = {"model", "messages", "thinking", "tools": TOOLS}
     D-->>L: data["choices"][0]["message"]
     L-->>A: reply = {"content": "...", "tool_calls": [call]}
@@ -107,7 +107,7 @@ sequenceDiagram
     A->>RT: run_tool(handlers, name="get_link_position",<br/>raw_args='{"link": "arm_l_end_link"}')
     RT->>RT: func = handlers.get(name)<br/>args = json.loads(raw_args)
     RT->>H: func(**args)  →  get_link_position(link="arm_l_end_link")
-    H->>R: xyz, _ = ros.lookup(config.BASE_FRAME, link)
+    H->>R: xyz, _ = robot_io.lookup(g2_config.BASE_FRAME, link)
     R->>B: tf = self.tf_buffer.lookup_transform("base_link",<br/>"arm_l_end_link", rclpy.time.Time(), timeout=1s)
     B-->>R: tf.transform.translation / rotation
     R-->>H: [t.x, t.y, t.z], [q.x, q.y, q.z, q.w]
@@ -115,7 +115,7 @@ sequenceDiagram
     RT-->>A: result
     A->>A: messages.append({"role": "tool",<br/>"tool_call_id": call["id"],<br/>"content": json.dumps(result)})
 
-    A->>L: reply = llm.chat(key, messages, TOOLS)  (第 2 轮)
+    A->>L: reply = deepseek_api.chat(key, messages, TOOLS)  (第 2 轮)
     L->>D: POST(messages 里多了 tool_calls 和工具结果)
     D-->>L: 没有 tool_calls
     L-->>A: reply["content"] = "左手末端在 x=0.264 m ..."
@@ -128,17 +128,17 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     participant RT as agent.py<br/>run_tool()
-    participant H as tools.py<br/>check_joint_change()
+    participant H as llm_tools.py<br/>check_joint_change()
     participant R as ros_io.py<br/>RosIO.check_collision()
     participant N as /check_state_validity
     participant MG as move_group(MoveIt)
 
     RT->>H: check_joint_change(group="left_arm",<br/>joint_index=4, delta_deg=90)
-    H->>H: name = config.JOINT_GROUPS[group][joint_index - 1]<br/>→ "idx24_arm_l_joint4"
-    H->>R: ros.joints([name])
+    H->>H: name = g2_config.JOINT_GROUPS[group][joint_index - 1]<br/>→ "idx24_arm_l_joint4"
+    H->>R: robot_io.joints([name])
     R-->>H: {name: 当前弧度}
     H->>H: new_value = 当前弧度 + math.radians(delta_deg)
-    H->>R: res = ros.check_collision({name: new_value})
+    H->>R: res = robot_io.check_collision({name: new_value})
 
     alt self.validity_client.service_is_ready() 为 False
         R-->>H: {"available": False, "error": "/check_state_validity 不可用"}
@@ -161,19 +161,19 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant C as check_ros.py<br/>step4_fk_vs_tf(ros, link)
+    participant C as check_ros.py<br/>step4_fk_vs_tf(robot_io, link)
     participant R as ros_io.py<br/>RosIO
-    participant K as kinematics.py
+    participant K as g2_kinematics.py
 
-    C->>R: ros.urdf_xml()
+    C->>R: robot_io.urdf_xml()
     R-->>C: self._urdf(XML 字符串)
-    C->>K: robot = kinematics.load_urdf(xml)
-    C->>R: joints = ros.joints()
+    C->>K: robot = g2_kinematics.load_urdf(xml)
+    C->>R: joints = robot_io.joints()
     R-->>C: {关节名: 弧度}(30 个)
-    C->>R: xyz, quat = ros.lookup(config.BASE_FRAME, link)
+    C->>R: xyz, quat = robot_io.lookup(g2_config.BASE_FRAME, link)
     R-->>C: TF 的答案
 
-    C->>K: T = kinematics.fk(robot, "base_link", link, joints)
+    C->>K: T = g2_kinematics.fk(robot, "base_link", link, joints)
     K->>K: chain_joints(robot, base, tip) → 14 个 joint
     loop 链上每个 joint
         K->>K: joint_transform(joint, q)<br/>= make_transform(rpy_to_matrix(origin.rpy), origin.xyz)<br/>@ make_transform(R=axis_angle_matrix(axis, q))
@@ -197,7 +197,7 @@ sequenceDiagram
     participant N as ROS2 网络(domain 77)
 
     F->>F: refuse_robot_domain()<br/>ROS_DOMAIN_ID == "4" 或有 DEV_IP → sys.exit
-    F->>F: urdf_xml = config.URDF_FILE.read_text()<br/>joint_names = 所有非 fixed 关节(30 个)
+    F->>F: urdf_xml = g2_config.URDF_FILE.read_text()<br/>joint_names = 所有非 fixed 关节(30 个)
     F->>F: params_file:写入 {"robot_state_publisher":<br/>{"ros__parameters": {"robot_description": urdf_xml}}}
     F->>RSP: rsp = subprocess.Popen(["ros2", "run", "robot_state_publisher", ...,<br/>"--params-file", params_file.name])
     RSP->>N: /robot_description(TRANSIENT_LOCAL)
@@ -214,7 +214,7 @@ sequenceDiagram
 看图时注意两点:
 
 - **只有 `ros_io.py` 连到 ROS 网络。** 其他文件都通过它读数据。
-- **TF 不是机器人直接发的。** `robot_state_publisher` 拿关节角和 URDF 算出来再发布。`kinematics.py` 做的是同一件事，所以两边结果一致。
+- **TF 不是机器人直接发的。** `robot_state_publisher` 拿关节角和 URDF 算出来再发布。`g2_kinematics.py` 做的是同一件事，所以两边结果一致。
 
 只有 `ros_io.py` 知道 ROS 的存在。以后换成别的机器人,或者 ROS 接口变了,只改这一个文件。
 
@@ -260,7 +260,7 @@ python3 learning/stage2_ros/agent.py
 
 ```bash
 source /opt/ros/humble/setup.bash
-python3 learning/stage2_ros/kinematics.py
+python3 learning/stage2_ros/g2_kinematics.py
 ```
 
 ## 这一阶段的 5 个关键概念
@@ -274,7 +274,7 @@ python3 learning/stage2_ros/kinematics.py
 ## 练习
 
 1. `check_ros.py --link head_link3`:头在哪?
-2. 在 `config.LINKS_FOR_LLM` 里加一个 link(比如 `arm_l_link2`),再问大模型它在哪。
+2. 在 `g2_config.LINKS_FOR_LLM` 里加一个 link(比如 `arm_l_link2`),再问大模型它在哪。
 3. 在 `fake_robot.py` 里让右臂也摆起来,看 `check_ros.py` 第 4 步的误差会不会变大,想一想为什么。
-4. 给 `tools.py` 加一个工具 `get_distance(link_a, link_b)`:两个 link 之间的直线距离。现在大模型是自己心算的。
+4. 给 `llm_tools.py` 加一个工具 `get_distance(link_a, link_b)`:两个 link 之间的直线距离。现在大模型是自己心算的。
 5. 真机上:先 `check_ros.py --step 5`,再问大模型“右臂第 2 关节再转 60 度会撞吗”,和第 5 步的结果对照。
