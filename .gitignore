@@ -57,3 +57,6 @@ traces/sam3/
 photos/
 # GDK glog 日志(harness/backends/gripper_gdk.py 把 GLOG_log_dir 指到 logs/gdk/)
 logs/
+
+# 离线实验的输出图(画面里可能有人)
+experiments/*/out/

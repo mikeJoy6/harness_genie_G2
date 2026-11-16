@@ -447,7 +447,11 @@ class RosBackend:
                 if allow_body and self.body_assist and self.body_assist.get("enabled"):
                     after = {"kind": "touch", "args": {"arm": arm, "object_xyz": obj.tolist(), "gap_m": gap_m,
                                                        "direction": d.tolist()}}
-                    body = self._body_assist(arm, deepest, d.tolist(), 0.0, failures, after)
+                    # 先找“现在这个手臂构型”前倾后就够得着的(不用换构型、不甩臂),找不到再用只看 IK 的搜索
+                    body = self._body_assist_lean_more(arm, deepest, d, roll_locked(self.arm.pose(arm)[1], d, 0.0),
+                                                       failures, after)
+                    if body is None:
+                        body = self._body_assist(arm, deepest, d.tolist(), 0.0, failures, after)
                     if body is not None:
                         body["summary"] = f"{why},{body['summary']}"
                         body["direction_notes"] = notes + [why + ",先动腰"]

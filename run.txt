@@ -33,10 +33,10 @@ python3 scripts/motion_cli.py
 # ── 运行 harness ──────────────────────────────────────
 
 source ~/agi@g2_robot/env_g2.sh
+source ~/.cache/agibot/app/env.sh
 cd ~/robot_harness
 
-# 只规划,机器人不动
-python3 scripts/run_task.py --real --plan-only "左手抵达红色积木上空"
+python3 scripts/run_task.py --real # --plan-only "左手抵达红色积木上空"
 
 # 真机执行(规划通过后自动执行;加 --confirm 每次按 y)
 python3 scripts/run_task.py --real "左手抵达红色积木上空"

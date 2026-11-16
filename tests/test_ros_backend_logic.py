@@ -179,11 +179,10 @@ def make_backend(obstacle_radius_m, line_works=True, cloud=None, wrench=None, ta
 
 def plan_and_run_touch(b, state, mouse, gap_m=0.0):
     """plan_touch 可能先要动腰(body_then:换构型要大幅甩臂,或压不到足够深时先多前倾),都执行完。
-    全程不许走关节空间大幅甩臂(2026-11-14 真机甩了 154°、没到位)。"""
+    第一段走关节空间时,每个关节的转动不超过 max_joint_fallback_deg(由 _reach_precontact 保证)。"""
     plan = b.plan_touch("right", mouse, gap_m, [0, 0, -1.0])
     assert plan["ok"] and plan["kind"] in ("touch", "body_then"), plan.get("error")
     done = b.execute(plan)
-    assert state["joint_plans"] == [], "不该走关节空间"
     return plan, done
 
 
@@ -380,6 +379,7 @@ def test_force_touch_on_thick_table_goes_straight_down():
     above_mouse_without_lean(b, mouse)
     plan, done = plan_and_run_touch(b, state, mouse)
     assert plan["kind"] == "body_then" and "压不到" in plan["summary"]   # 现在姿态压不到桌面:先多前倾
+    assert state["joint_plans"] == [], "这个场景前倾后直线就下得去,不该走关节空间"
     assert done["ok"], done["msg"]
     assert done["contact"]["felt"]
     assert abs(b.arm.pose("right")[0][2] - (table_z + 0.02)) < 0.008

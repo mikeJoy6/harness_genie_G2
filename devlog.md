@@ -2,7 +2,66 @@
 
 设计文档在 [docs/](docs/index.md),这里只记每天做了什么、遇到什么问题。
 
+# 2026.11.15
+
+## 桌面全分割(不管语义)第 1 步:前景掩码
+
+用户试了演示的“全分割”:蓝 / 绿积木、钥匙都漏了。改思路:几何和颜色告诉 SAM“哪里有东西”,SAM 只负责描边界。用户录了 6 组数据(`recordings/head_20261115_*`,每组 10 帧,同一头部姿态,东西一组比一组多)。
+
+[experiments/tabletop_seg/foreground.py](experiments/tabletop_seg/foreground.py):10 帧深度取中位数 → RANSAC 桌面平面(高 0.687~0.690m,倾斜 <1°,桌面点离平面中位 1.1~1.3mm)→ 桌面区域(内点凸包)→ 深度 / 颜色 / 深度空洞 / 边缘四种前景取并集。积木、白色的秤、笔、螺丝刀都进了;灰色金属齿轮、剪刀刃、钥匙只进了一部分;勺子没进。边缘线索第一版把线缆围出来的空桌面也填了,改成“里面不像桌面才填”。详见 [experiments/tabletop_seg/README.md](experiments/tabletop_seg/README.md)。
+
+```bash
+cd ~/robot_harness
+python3 experiments/tabletop_seg/foreground.py recordings/head_20261115_*
+```
+
+## SAM 3 交互分割演示(点 / 框 / 示例框 / 文本 / 全分割),不接 harness
+
+用户问 SAM 3 能不能“点一个像素,补全那个物体”。能:SAM 3 自带 SAM 1 式交互分割,构建模型时 `enable_inst_interactivity=True` 才加载(默认关;权重就在 `sam3.pt` 里,tracker 那部分),常规服务没开,也没有接口。按用户要求单独做成演示,不接 harness:
+
+- [demos/sam3_click/server.py](demos/sam3_click/server.py):端口 8766。`/image` 先把一帧编码好缓存(拿到 image_id),之后 `/points`(点 / 框)、`/text`、`/exemplar`(示例框找同类)、`/everything`(网格撒点、每点补全、按重合度去重、面积上限去掉桌面地面)都只做解码那一步。sam3 的 venv 里没有 OpenCV,掩码用 PIL 编 PNG。
+- [demos/sam3_click/click_demo.py](demos/sam3_click/click_demo.py):头部相机实时画面,空格冻结;1~5 切模式;请求在后台线程,连点只留最新的;`--image` 用存好的图、不要 ROS。
+- 离线实测(存好的 640×400 头部画面):显存常驻 3.6 GB(比常规服务多约 170 MB);点击之后几十 ms;点出来的鼠标和文本 `mouse` 重合度 0.96;全分割 0.7 s 分出 15 块,20 像素的小积木会漏(`--grid 32`)。详见 [demos/sam3_click/README.md](demos/sam3_click/README.md)。**真机实时画面没跑。**
+
+```bash
+# 终端 1(常规 SAM 3 服务 8765 先停掉)
+cd ~/robot_harness
+~/sam3_service/.venv/bin/python demos/sam3_click/server.py
+# 终端 2
+source ~/agi@g2_robot/env_g2.sh
+cd ~/robot_harness
+python3 demos/sam3_click/click_demo.py
+python3 demos/sam3_click/click_demo.py --image traces/sam3/20261114_032418_mouse/color.jpg   # 不连机器人
+python3 demos/sam3_click/click_demo.py --grid 32
+```
+
 # 2026.11.14
+
+## 真机“拿起鼠标放到我手上”:touch 甩了 154° 没到位 → 最深点改成“尽量”,不换构型、先多前倾
+
+trace `traces/20261114_030854.jsonl`。approach 到鼠标上方 12cm(夹爪正朝下)后:
+1. 第一次 touch:“末端规划到得了预接触点,但到的那个构型直线下不去,改关节空间”,RRT 最大关节变化 **154°**,执行完 `idx63_arm_r_joint3 差 30.8°` 没到位,手停在离目标 15cm 处(**要人看一下:这 21s 里手臂有没有碰到东西 / 人**)。
+2. 模型又 approach 到 5cm、自己往下挪 2cm,两次 touch 都被几何检查拦下(“最后一段会碰到物体以外的点云”)。
+
+原因(离线用真实 URDF 复现,关节变化同样是 154°):上午加的“按最深点(接触点 + 5cm)规划”。
+- 现在的构型直线到得了鼠标顶面,但到不了顶面下 5cm(差 2cm),只有另一个构型分支到得了 → 换分支 = 大幅甩臂;
+- 几何检查查到了最深点:最深点在桌面里,桌面在 octomap 里是背面补全出来的好几层,把最后一段全拦了。
+
+改动([docs/touch_chain.md](docs/touch_chain.md)):
+- `_keep_out_ok` 只查到接触点为止,越过接触点那段归六维力;
+- 第一段只要求现在的构型到得了接触点;压不深(`shallow`)时先多前倾,不行再接受浅的;执行时越过接触点按 1cm 一档试;
+- 新 [`_body_assist_lean_more`](harness/backends/ros.py):前倾候选用“手臂关节不动、直线积分到最深点”来验(保证不换构型),接触点够不着时也先用它;
+- `motion.touch.max_joint_fallback_deg: 90`:第一段关节空间兜底超过就不走。
+
+离线:今天这个场景 → 前倾 5° → 竖直往下 → 碰到桌面停 → 退 2cm,全程不走关节空间;上午那个远鼠标 → 前倾 5°、转腰 10° → 第一段关节空间(<90°)→ 到位。147 过、1 败(工作范围配置)。**真机没跑。**
+
+另外这次模型把用户的手(1.18m,reachable_by 空)也找了,但根本没走到“放到手上”那步;放东西还没有工具(place / handover),以后做。
+
+```bash
+cd ~/robot_harness && source /opt/ros/humble/setup.bash
+python3 -m pytest tests/test_ros_backend_logic.py -q
+python3 scripts/run_task.py --real "拿起鼠标"      # 预期:可能先前倾,然后竖直往下,碰到桌面停、退 2cm、闭合、抬起
+```
 
 ## touch 最后一段加六维力(碰到就停、退 2cm);腕部相机接口
 
