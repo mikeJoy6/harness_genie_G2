@@ -1,5 +1,26 @@
-# robot_harness 常用命令
 # key 写在 ~/robot_harness/.env:DEEPSEEK_API_KEY=sk-...(不要在终端 export 中文占位符)
+
+
+# 挂载sam3
+cd ~/sam3_service && .venv/bin/python server.py
+
+# 真机
+source ~/agi@g2_robot/env_g2.sh
+ros2 launch genie_robot_agibot_g2_hardware hardware.launch.py end_effector:=true
+
+# 处理器
+source ~/agi@g2_robot/env_g2.sh
+source ~/.cache/agibot/app/env.sh
+cd ~/robot_harness
+python3 scripts/run_task.py --real 
+
+
+
+
+
+
+
+
 
 
 
