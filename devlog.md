@@ -2,6 +2,12 @@
 
 设计文档在 [docs/](docs/index.md),这里只记每天做了什么、遇到什么问题。
 
+# 2026.11.17
+
+## 经验系统的时序图
+
+用户反馈加了经验系统后代码看不懂了。在 [experience/README.md](experience/README.md) 的“代码怎么串起来”里,仿照 [harness_guide.md](docs/harness_guide.md#L52) 的 sequenceDiagram 画了“拿起鼠标 + 模型读了经验”的一次完整流程,替换原来的文字流程图;下面的表格(每步跳到代码行)保留。
+
 # 2026.11.16
 
 ## 系统提示重写 + 经验系统 + 场景测试 + 跨指令状态
