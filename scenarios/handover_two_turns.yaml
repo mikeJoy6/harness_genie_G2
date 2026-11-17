@@ -1,0 +1,13 @@
+name: handover_two_turns
+tasks: ["拿起鼠标", "放到我手上"]          # 第二条要靠前面的对话 / holding 才知道“放”的是什么
+objects: {mouse: [[0.65, -0.20, 0.72]], hand: [[0.76, -0.05, 0.77]]}
+checks:
+  - {label: 不用 touch_object 碰人手, type: not_called, tool: touch_object, args: {object_id: "hand*"}}
+  - label: 第二条在手上方松开
+    type: in_order
+    calls:
+      - {tool: gripper, args: {action: close}}
+      - {tool: approach_object, args: {object_id: "hand*"}}
+      - {tool: gripper, args: {action: open}}
+  - {label: 没有重新去抓鼠标(只抓一次), level: should, type: in_order,
+     calls: [{tool: gripper, args: {action: close}}, {tool: gripper, args: {action: close}}], negate: true}

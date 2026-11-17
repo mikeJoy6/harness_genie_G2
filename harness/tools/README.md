@@ -16,7 +16,10 @@
 | | `move_joints`:腰 / 头 / 左臂 / 右臂某一组关节转动 | **会** |
 | | `go_to_pose`:回到 `configs/poses.yaml` 里录好的位姿 | **会** |
 
-`objects.py` 里的 `make_tools(位姿名, 位姿说明)` 把两个文件的工具合在一起。没有录位姿时不提供 `go_to_pose`。
+| `experience.py` | `read_experience`:读一条经验全文 | 不会 |
+| | `propose_experience`:提议一条新经验(进待审,人审核后才生效) | 不会 |
+
+`objects.py` 里的 `make_tools(位姿名, 位姿说明)` 把前两个文件的工具合在一起;经验工具由 `make_experience_tools(经验名字)` 单独给。没有录位姿时不提供 `go_to_pose`。
 
 ## 和哪里联动
 

@@ -20,7 +20,8 @@
 
 | 文件 | 作用 |
 |---|---|
-| `loop.py` | 循环:问模型 → 执行工具 → 把结果告诉模型 |
+| `loop.py` | 循环:问模型 → 执行工具 → 把结果告诉模型;`build_system` 拼系统提示(固定部分 + 经验目录) |
+| `experience.py` | 经验库:读 `experience/*.md`、生成目录、读全文、把大模型提议的经验存进 `experience/pending/`([说明](../docs/experience.md)) |
 | `llm.py` | 通过 HTTP 调用 DeepSeek |
 | `gateway.py` | 关卡:计算目标点,所有安全检查都在这里 |
 | `motion/` | 运控与绕障规划,见其 README |

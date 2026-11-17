@@ -8,7 +8,9 @@
 
 | 文件 | 作用 |
 |---|---|
-| `run_task.py` | 启动 harness |
+| `run_task.py` | 启动 harness;交互模式下多条指令共用一个机器人状态,并带上最近 5 条问答 |
+| `run_scenarios.py` | 场景测试:假机器人 + 真大模型跑 `scenarios/*.yaml`,统计每条检查的通过率 |
+| `experience.py` | 看 / 审核经验:`list`、`show`、`approve`、`reject` |
 | `motion_cli.py` | 手臂交互命令行(`move`、`line`、`goto`、`detour`),复制自 `agi@g2_robot` |
 | `check_wrist_camera.py` | 只读:腕部相机话题、帧率、RGB 还是 RGBD、TF([说明](../docs/wrist_camera.md)) |
 | `gripper_cli.py` | 单独测夹爪:`status` / `open` / `close`(走 GDK) |

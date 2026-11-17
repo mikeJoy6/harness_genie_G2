@@ -2,6 +2,30 @@
 
 设计文档在 [docs/](docs/index.md),这里只记每天做了什么、遇到什么问题。
 
+# 2026.11.16
+
+## 系统提示重写 + 经验系统 + 场景测试 + 跨指令状态
+
+用户觉得 SYSTEM 写得不好,要一个“大模型自己决定调不调用”的经验系统。设计和结果见 [docs/experience.md](docs/experience.md)。
+
+1. **SYSTEM 分层**([`build_system`](harness/loop.py)):事实 / 必须遵守 / 工作方法 + 自动生成的经验目录;工具路由删掉(工具说明里都有);配方搬进经验。用户纠正:“靠近人时只能从上方竖直下来”会让击掌没法做 → SYSTEM 只讲“接触人要用户要求”,方向写进各自的经验。
+2. **经验**:[experience/](experience/README.md) 4 条(拿起、递给人、击掌、合影),状态按真机 trace 写(击掌最近一次 `traces/20261115_232041.jsonl`:gap 0 越过手的位置 5cm 也没感到力)。工具 `read_experience`、`propose_experience`(进 `experience/pending/`,`scripts/experience.py approve` 才生效)。
+3. **场景测试**:[scripts/run_scenarios.py](scripts/run_scenarios.py) + [scenarios/](scenarios/README.md) 6 个场景 + 会动的假世界 `fake_world.py`。结果(每个 3 遍):旧 SYSTEM 15/18、新 SYSTEM 无经验 10/18、新 SYSTEM + 经验 18/18。旧 SYSTEM 复现了真机的“touch_object 去碰人手”;只改 SYSTEM 更差,因为配方搬走后模型忘了先张开夹爪。
+4. **跨指令状态**:`run_task.py` 的 `Session` 共用一个 Gateway;`holding`(按夹爪动作推测手里拿着什么)进 `get_robot_state`;带最近 5 条问答。`max_moves_per_command` 8 → 12(拿起 + 递过去 = 10 次)。
+
+测试:新 `tests/test_experience.py`(含“经验里提到的工具都存在”)、`tests/test_session.py`。160 个里 159 过,1 败还是工作范围配置那个。**真机没跑。**
+
+```bash
+cd ~/robot_harness
+python3 -m pytest tests -q
+python3 scripts/run_scenarios.py                          # 新 SYSTEM + 经验,每个场景 3 遍(会调 DeepSeek)
+python3 scripts/run_scenarios.py --variant baseline       # 对照组
+python3 scripts/run_scenarios.py handover --runs 5
+python3 scripts/experience.py list
+python3 scripts/experience.py approve <名字>
+python3 scripts/run_task.py --real                        # 交互模式:可以先“拿起鼠标”,再“放到我手上”
+```
+
 # 2026.11.15
 
 ## 桌面全分割(不管语义)第 1 步:前景掩码

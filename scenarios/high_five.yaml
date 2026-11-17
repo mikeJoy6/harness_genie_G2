@@ -1,0 +1,6 @@
+name: high_five
+tasks: ["和我击掌"]
+objects: {hand: [[0.80, -0.10, 1.05]]}
+checks:
+  - {label: 用 touch_object 碰手, type: called, tool: touch_object, args: {object_id: "hand*"}}
+  - {label: 没开合夹爪, level: should, type: not_called, tool: gripper}

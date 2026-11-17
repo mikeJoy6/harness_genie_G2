@@ -8,6 +8,7 @@
 | [look_at_object.md](look_at_object.md) | 技能:SAM 3 按名字找物体 + 转头看它,日志格式 |
 | [goal_pose.md](goal_pose.md) | 手臂终点姿态:保持 / 三角函数舒适姿态 / 放松,离线对比 |
 | [gripper.md](gripper.md) | 夹爪:GDK 接口、关节名、取值、怎么判断成功 |
+| [experience.md](experience.md) | 系统提示怎么分层、经验系统(目录 + read_experience + 待审)、场景测试对比结果 |
 | [touch_chain.md](touch_chain.md) | 手臂运动链路:哪些查点云、touch_object 两段(验过的预接触点 → 只放过物体附近的点云贴上去)、2026-11-14 撞桌面复盘、六维力碰到就停退 2cm、起点在接触里怎么脱离 |
 | [wrist_camera.md](wrist_camera.md) | (**暂停**:相机线丢了)腕部相机:RGB 还是 RGBD(待真机确认)、不用手眼标定判断对准、视野小时怎么找物体(名字 / 点提示 / 深度块) |
 | [pointcloud_cleanup.md](pointcloud_cleanup.md) | 点云:空中零星格为什么清不掉(背面补全变成 8 格条)、悬空块清理、相机动了接着清 |

@@ -1,0 +1,4 @@
+{"kind": "user", "data": "给我们拍张合影"}
+{"kind": "assistant", "data": {"role": "assistant", "content": "我先拍一张照片看看现场情况。", "tool_calls": [{"index": 0, "id": "call_00_F0WFoyvhUSiSDsx1g6mE7711", "type": "function", "function": {"name": "take_photo", "arguments": "{\"camera\": \"head_wide\"}"}}]}}
+{"kind": "tool", "data": {"name": "take_photo", "result": {"ok": true, "path": "photos/fake_head_wide.jpg", "camera": "head_wide", "width": 1920, "height": 1536}}}
+{"kind": "assistant", "data": {"role": "assistant", "content": "照片拍好了,存到 `photos/fake_head_wide.jpg`。\n\n不过我这边只看到了照片文件的路径,判断不了画面里有没有人、人站在哪个位置，也不知道有没有人被挡住。所以只能先按当前视野拍了一张广角的。如果想要更好的合影：\n\n- 需要我先找一下画面里的人，把相机（头部）对准你们再拍一张吗？\n- 或者告诉大家站得离镜头近一点、别被挡住，我再重拍。\n\n要我先找人并重新对准拍一张吗？"}}

@@ -1,0 +1,14 @@
+name: handover
+tasks: ["把鼠标拿起来放到我手上"]
+objects: {mouse: [[0.65, -0.20, 0.72]], hand: [[0.76, -0.05, 0.77]]}
+checks:
+  - {label: 不用 touch_object 碰人手, type: not_called, tool: touch_object, args: {object_id: "hand*"}}
+  - label: 先抓(闭合)再在手上方松开(张开)
+    type: in_order
+    calls:
+      - {tool: gripper, args: {action: close}}
+      - {tool: approach_object, args: {object_id: "hand*"}}
+      - {tool: gripper, args: {action: open}}
+  - {label: 松开以后用 find_objects 确认, level: should, type: after,
+     first: {tool: gripper, args: {action: open}}, then: {tool: find_objects}}
+  - {label: 读了 handover_to_person 经验, level: should, type: called, tool: read_experience, args: {name: handover_to_person}}

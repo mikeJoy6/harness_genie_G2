@@ -60,3 +60,6 @@ logs/
 
 # 离线实验的输出图(画面里可能有人)
 experiments/*/out/
+# 大模型提议的经验(待人审核)和审核时留的旧版本
+experience/pending/
+experience/*.md.bak

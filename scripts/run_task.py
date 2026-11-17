@@ -17,9 +17,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from harness.backends.fake import FakeBackend
+from harness.experience import ExperienceBook
 from harness.gateway import Gateway
 from harness.llm import DeepSeekLLM
-from harness.loop import run_agent
+from harness.loop import build_system, run_agent
+from harness.tools.experience import make_experience_tools
 from harness.tools.objects import make_tools
 
 
@@ -55,24 +57,43 @@ def load_poses():
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
-def run_one(task, llm, backend, cfg, args):
-    poses = load_poses()                                    # 每条指令重读,录了新位姿不用重启
-    # gateway
-    confirm = None                                          # 假机器人:不问也不打印
-    if args.real:
-        if args.confirm or cfg["motion"]["confirm_motion"]:
-            confirm = ask_user
-        else:
-            confirm = announce
-    photo = dict(cfg["vision"]["photo"], dir=str(ROOT / cfg["vision"]["photo"]["dir"]))
-    gateway = Gateway(backend, cfg["motion"], confirm=confirm, photo_cfg=photo,
-                      plan_only=args.plan_only, poses=poses)
-    trace_path = ROOT / "traces" / f"{time.strftime('%Y%m%d_%H%M%S')}.jsonl"
-    with open(trace_path, "w", encoding="utf-8") as trace:
+HISTORY_COMMANDS = 5      # 新指令前面附上最近几条指令的问答,模型才知道刚才做过什么(“拿起鼠标”之后说“放到我手上”)
+
+
+class Session:
+    """一次运行(交互模式下的多条指令)共用一个 Gateway:手里拿着什么、找到过的物体编号都留着;
+    每条指令开始时运动次数清零。"""
+
+    def __init__(self, llm, backend, cfg, args):
+        self.llm = llm
+        self.cfg = cfg
+        confirm = None                                      # 假机器人:不问也不打印
+        if args.real:
+            if args.confirm or cfg["motion"]["confirm_motion"]:
+                confirm = ask_user
+            else:
+                confirm = announce
+        photo = dict(cfg["vision"]["photo"], dir=str(ROOT / cfg["vision"]["photo"]["dir"]))
+        self.book = ExperienceBook(ROOT / "experience")    # 经验:SYSTEM 里放目录,模型用 read_experience 读全文
+        self.gateway = Gateway(backend, cfg["motion"], confirm=confirm, photo_cfg=photo,
+                               plan_only=args.plan_only, poses={}, experience=self.book)
+        self.history = []                                   # [{"role": "user"/"assistant", "content": 文字}, ...]
+
+    def run(self, task):
+        poses = load_poses()                                # 每条指令重读,录了新位姿不用重启
+        self.gateway.poses = poses
+        self.gateway.moves = 0
         notes = {name: pose.get("note", "") for name, pose in poses.items()}
-        answer = run_agent(task, llm, gateway, make_tools(list(poses), notes),
-                           max_steps=cfg["agent"]["max_steps"], trace=trace)
-    print(f"\n机器人助手:{answer}\n[trace] {trace_path}\n", flush=True)
+        tools = make_tools(list(poses), notes) + make_experience_tools(self.book.names())
+        system = build_system(self.book.catalog_text())     # 每条指令重读经验,审核通过的新经验马上生效
+        trace_path = ROOT / "traces" / f"{time.strftime('%Y%m%d_%H%M%S')}.jsonl"
+        recent = self.history[-2 * HISTORY_COMMANDS:]
+        with open(trace_path, "w", encoding="utf-8") as trace:
+            answer = run_agent(task, self.llm, self.gateway, tools, max_steps=self.cfg["agent"]["max_steps"],
+                               trace=trace, system=system, history=recent)
+        self.history.append({"role": "user", "content": task})
+        self.history.append({"role": "assistant", "content": answer})
+        print(f"\n机器人助手:{answer}\n[trace] {trace_path}\n", flush=True)
 
 
 def main():
@@ -98,8 +119,9 @@ def main():
         backend = FakeBackend()
 
     try:
+        session = Session(llm, backend, cfg, args)
         if args.task:
-            run_one(args.task, llm, backend, cfg, args)
+            session.run(args.task)
             return
         while True:
             try:
@@ -109,7 +131,7 @@ def main():
             if task in ("q", "quit", "exit"):
                 return
             if task:
-                run_one(task, llm, backend, cfg, args)
+                session.run(task)
     finally:
         backend.close()
 

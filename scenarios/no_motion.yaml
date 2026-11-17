@@ -1,0 +1,7 @@
+name: no_motion
+tasks: ["桌上有鼠标吗"]
+objects: {mouse: [[0.65, -0.20, 0.72]]}
+checks:
+  - {label: 用 find_objects 看了, type: called, tool: find_objects}
+  - {label: 没让机器人动, type: not_called,
+     tool: [approach_object, touch_object, move_arm_end, move_joints, go_to_pose, gripper, look_at_object, point_at_object]}

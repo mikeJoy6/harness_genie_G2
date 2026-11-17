@@ -92,7 +92,8 @@ def _number_list(value, n, name):
 
 
 class Gateway:
-    def __init__(self, backend, motion_cfg, confirm=None, plan_only=False, poses=None, photo_cfg=None):
+    def __init__(self, backend, motion_cfg, confirm=None, plan_only=False, poses=None, photo_cfg=None,
+                 experience=None):
         self.backend = backend
         self.cfg = motion_cfg
         self.confirm = confirm          # confirm(这次要做什么) → True 执行 / False 取消;None 表示不过问(测试用)
@@ -100,6 +101,9 @@ class Gateway:
         self.poses = poses or {}        # configs/poses.yaml:{位姿名: {"groups": [...], "joints": {...}}}
         self.photo_cfg = photo_cfg or {"dir": "photos", "default_camera": "head_wide", "cameras": {}}
         self.objects = {}               # find_objects 找到的物体:{编号: {"xyz_m", "time", "label"}};坐标只存在这里
+        self.experience = experience    # harness/experience.py 的 ExperienceBook;None = 没有经验工具
+        self.holding = {arm: None for arm in ARMS}   # 按夹爪动作推测手里拿着什么(没验证),get_robot_state 里报
+        self.last_touch = None          # 上一次执行过的 touch_object:{"arm", "object_id", "gap_cm", "felt"}
         self.moves = 0
 
     def execute(self, name, args):
@@ -114,7 +118,9 @@ class Gateway:
                     "touch_object": self._touch_object,
                     "take_photo": self._take_photo,
                     "gripper": self._gripper,
-                    "wait": self._wait}
+                    "wait": self._wait,
+                    "read_experience": self._read_experience,
+                    "propose_experience": self._propose_experience}
         if name not in handlers:
             return {"ok": False, "error": f"没有工具 '{name}'"}
         try:
@@ -285,6 +291,8 @@ class Gateway:
         if result.get("executed"):
             end = self.backend.end_pose(arm)["xyz_m"]
             result.update(end_xyz_m=_round(end), tip_to_object_m=round(math.dist(end, obj["xyz_m"]), 3))
+            felt = (result.get("contact") or {}).get("felt")
+            self.last_touch = {"arm": arm, "object_id": object_id, "gap_cm": float(gap), "felt": felt}
         return result
 
     def _check_centered(self, obj):
@@ -333,7 +341,36 @@ class Gateway:
             return {"ok": False, "executed": False, "error": "用户拒绝了这次夹爪动作", **info}
         self.moves += 1
         result = self.backend.gripper_command(arm, action)
-        return {**result, "executed": bool(result.get("ok")), **info}
+        executed = bool(result.get("ok"))
+        if executed:
+            self._update_holding(arm, action)
+        return {**result, "executed": executed, **info, "holding": self.holding[arm]}
+
+    def _update_holding(self, arm, action):
+        """按夹爪动作推测手里拿着什么(夹爪不回报开合位置,没法验证):
+        张开 → 空;闭合前最后一个动作是这只手 touch_object(gap 0)下探到某个物体 → 拿着它;否则不知道夹没夹到。"""
+        if action == "open":
+            self.holding[arm] = None
+            return
+        touch = self.last_touch
+        if touch is not None and touch["arm"] == arm and touch["gap_cm"] == 0 and touch["felt"] is not False:
+            self.holding[arm] = {"object_id": touch["object_id"],
+                                 "basis": "touch_object 下探后闭合夹爪推测的,没验证;要确认就 find_objects 看它有没有跟着夹爪"}
+        else:
+            self.holding[arm] = {"object_id": None, "basis": "夹爪闭合了,但之前没有下探到物体,不知道有没有夹到东西"}
+
+    def _read_experience(self, args):
+        """读一条经验全文。不动机器人。"""
+        if self.experience is None:
+            return {"ok": False, "error": "没有配置经验库"}
+        return self.experience.read(args.get("name"))
+
+    def _propose_experience(self, args):
+        """大模型提议一条经验:存进 experience/pending/,人审核后才生效。不动机器人。"""
+        if self.experience is None:
+            return {"ok": False, "error": "没有配置经验库"}
+        return self.experience.propose(args.get("name"), args.get("when"), args.get("content"),
+                                       source=args.get("source", ""))
 
     def _wait(self, args):
         """等几秒再继续(“打开夹爪,过 5 秒再闭合”)。不动机器人。"""
@@ -356,7 +393,7 @@ class Gateway:
                          "tool_axis": axis, "tool_tilt_from_down_deg": tilt}
         grippers = {arm: self.backend.gripper_state(arm) for arm in ARMS}
         return {"ok": True, "frame": "base_link", "joints_deg": groups, "ends": ends, "grippers": grippers,
-                "moves_left": self.cfg["max_moves_per_command"] - self.moves}
+                "holding": self.holding, "moves_left": self.cfg["max_moves_per_command"] - self.moves}
 
     # ================= 运动:共用的部分 =================
     def _no_moves_left(self):
