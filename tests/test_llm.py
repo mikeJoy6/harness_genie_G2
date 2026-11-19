@@ -67,5 +67,66 @@ def test_real_config_profiles_build(monkeypatch):
         if profile.get("api_key_env"):
             monkeypatch.setenv(profile["api_key_env"], "sk-test")
         llm = make_llm(cfg, name)
-        assert isinstance(llm, ChatCompletionsLLM)
+        assert isinstance(llm, ChatCompletionsLLM)      # ResponsesLLM 是它的子类
         assert llm.describe()["name"] == name
+
+
+# ---- Responses 接口(gpt-6.2-astra 用):格式翻译,不联网 ----
+
+def responses_llm(monkeypatch):
+    monkeypatch.setenv("TEST_KEY_A", "sk-test")
+    cfg = {"default_llm": "r", "llms": {"r": {"type": "responses", "base_url": "https://r.example/v1",
+                                              "model": "m", "api_key_env": "TEST_KEY_A",
+                                              "extra_body": {"reasoning": {"effort": "low"}}}}}
+    return make_llm(cfg)
+
+
+def test_responses_request(monkeypatch):
+    llm = responses_llm(monkeypatch)
+    assert llm.url == "https://r.example/v1/responses"
+    tools = [{"type": "function", "function": {"name": "find_objects", "description": "找",
+                                               "parameters": {"type": "object", "properties": {}}}}]
+    messages = [
+        {"role": "system", "content": "S"},
+        {"role": "user", "content": "拿起鼠标"},
+        {"role": "assistant", "content": "", "responses_output": [{"type": "reasoning", "id": "rs_1"},
+                                                                  {"type": "function_call", "call_id": "c1",
+                                                                   "name": "find_objects", "arguments": "{}"}],
+         "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "find_objects", "arguments": "{}"}}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "{\"ok\": true}"},
+    ]
+    body = llm.request_body(messages, tools)
+    assert body["reasoning"] == {"effort": "low"} and body["store"] is False
+    assert body["tools"] == [{"type": "function", "name": "find_objects", "description": "找",
+                              "parameters": {"type": "object", "properties": {}}, "strict": False}]
+    items = body["input"]
+    assert items[0] == {"role": "system", "content": "S"}
+    assert items[2] == {"type": "reasoning", "id": "rs_1"}            # 推理原样传回
+    assert items[3]["type"] == "function_call" and items[3]["call_id"] == "c1"
+    assert items[4] == {"type": "function_call_output", "call_id": "c1", "output": "{\"ok\": true}"}
+
+
+def test_responses_history_text_only(monkeypatch):
+    """Session.history 里只有文字的 assistant(可能是别的模型写的)也能翻译。"""
+    body = responses_llm(monkeypatch).request_body([{"role": "assistant", "content": "拿好了"}], [])
+    assert body["input"] == [{"role": "assistant", "content": "拿好了"}]
+
+
+def test_responses_reply(monkeypatch):
+    llm = responses_llm(monkeypatch)
+    output = [{"type": "reasoning", "id": "rs_1", "summary": []},
+              {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "先找"}]},
+              {"type": "function_call", "id": "fc_1", "call_id": "c9", "name": "find_objects",
+               "arguments": "{\"query\": \"mouse\"}"}]
+    reply = llm.parse_reply({"status": "completed", "output": output})
+    assert reply["content"] == "先找"
+    assert reply["tool_calls"] == [{"id": "c9", "type": "function",
+                                    "function": {"name": "find_objects", "arguments": "{\"query\": \"mouse\"}"}}]
+    assert reply["responses_output"] == output
+
+
+def test_responses_empty_reply_raises(monkeypatch):
+    llm = responses_llm(monkeypatch)
+    with pytest.raises(RuntimeError):
+        llm.parse_reply({"status": "incomplete", "output": [{"type": "reasoning", "id": "rs_1"}],
+                         "incomplete_details": {"reason": "max_output_tokens"}})

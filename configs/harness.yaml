@@ -1,11 +1,12 @@
 # 大模型:每个一段,起一个名字。run_task.py / run_scenarios.py 用 --llm 名字 选,不填用 default_llm。
 # 加一种模型 = 加一段,不用改代码(harness/llm.py 的 make_llm)。每段的键:
-#   base_url     接口地址(请求发到 <base_url>/chat/completions)
+#   base_url     接口地址(chat_completions 发到 <base_url>/chat/completions,responses 发到 <base_url>/responses)
 #   model        模型名
 #   api_key_env  .env 里存 key 的变量名;本地模型不要 key 就写 null
 #   extra_body   (可选)这家特有的请求字段,原样加进请求
 #   timeout_s    一次请求最多等多久
-#   type         (可选)接口类型,默认 chat_completions(OpenAI 格式,绝大多数厂商都兼容)
+#   type         (可选)接口类型:chat_completions(默认,绝大多数厂商都兼容)
+#                / responses(OpenAI 新接口,推理模型带工具要用它)
 default_llm: deepseek
 llms:
   deepseek:
@@ -16,6 +17,14 @@ llms:
       thinking: {type: disabled}   # enabled 更慢,但模型会先推理
     timeout_s: 90
   gpt:
+    type: responses                # gpt-6.2-astra 在 chat/completions 上不能同时用工具和推理(2026-11-18 实测 400)
+    base_url: https://api.openai.com/v1
+    model: gpt-6.2-astra
+    api_key_env: OPENAI_API_KEY
+    extra_body:
+      reasoning: {effort: low}     # low / medium / high / xhigh;越高越慢
+    timeout_s: 120
+  gpt_mini:                        # 2026-11-18 第一次接 GPT 用的,场景 9/18、从不读经验;留着做对比
     base_url: https://api.openai.com/v1
     model: gpt-4.1-mini
     api_key_env: OPENAI_API_KEY

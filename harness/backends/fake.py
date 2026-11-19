@@ -120,7 +120,7 @@ class FakeBackend:
         contact = [o - gap_m * d for o, d in zip(object_xyz, direction)]
         pre = [c - 0.05 * d for c, d in zip(contact, direction)]
         return {"ok": True, "kind": "touch", "arm": arm, "contact_xyz_m": contact, "precontact_xyz_m": pre,
-                "unchecked_m": 0.05, "approach": "末端→物体", "rpy_deg": list(self.ends[arm]["rpy_deg"]),
+                "gap_m": gap_m, "unchecked_m": 0.05, "approach": "末端→物体", "rpy_deg": list(self.ends[arm]["rpy_deg"]),
                 "summary": "假规划:先到接触点前 5cm,再慢速直线 5cm"}
 
     def plan_joints(self, target, speed):
@@ -138,6 +138,11 @@ class FakeBackend:
         elif plan["kind"] == "touch":
             self.executed.append(plan["contact_xyz_m"])
             self.ends[plan["arm"]] = {"xyz_m": list(plan["contact_xyz_m"]), "rpy_deg": list(plan["rpy_deg"])}
+            if plan.get("gap_m") == 0:
+                # 和真机 RosBackend._run_force_guarded 碰到时的格式一样;不给的话模型会照经验认为“没碰到”而停下
+                # (2026-11-18 gpt-6.2-astra 场景测试每次都停在这里)
+                return {"ok": True, "msg": "假执行完成;最后一段碰到东西(假的六维力),已停并往回退 2cm",
+                        "contact": {"felt": True, "force_change_n": 8.0, "moved_m": 0.05, "retreat_m": 0.02}}
         else:
             self.executed.append(dict(plan["target"]))
             self.joints.update(plan["target"])

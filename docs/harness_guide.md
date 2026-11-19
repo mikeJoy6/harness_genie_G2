@@ -314,7 +314,7 @@ def _execute(call, gateway):
 
 ### 6.1 按名字建模型:make_llm
 
-[harness/llm.py#L70](../harness/llm.py#L70)
+[harness/llm.py#L150](../harness/llm.py#L150)
 
 ```python
 def make_llm(cfg, name=None):
@@ -329,15 +329,15 @@ def make_llm(cfg, name=None):
     return LLM_TYPES[kind](name, **settings)
 ```
 
-`run_task.py` 和 `run_scenarios.py` 都只调这一个函数。yaml 那一段的键(`base_url`、`model`、`api_key_env`、`extra_body`、`timeout_s`)原样变成 [ChatCompletionsLLM](../harness/llm.py#L14) 的参数。`type` 留给以后格式不同的接口:写一个新类,在 [LLM_TYPES](../harness/llm.py#L65) 登记。
+`run_task.py` 和 `run_scenarios.py` 都只调这一个函数。yaml 那一段的键(`base_url`、`model`、`api_key_env`、`extra_body`、`timeout_s`)原样变成 [ChatCompletionsLLM](../harness/llm.py#L14) 的参数。`type` 选接口格式,对应 [LLM_TYPES](../harness/llm.py#L144) 里的类(见 6.6)。
 
 ### 6.2 构造:检查 key
 
-[harness/llm.py#L17-L29](../harness/llm.py#L17-L29)。`api_key_env` 为 `null` 时不要 key(本地模型)。`isascii()` 这一行来自一次真实报错:key 被设成了“你的key”,HTTP 头只能是 latin-1 编码,于是报 `UnicodeEncodeError`。现在会直接给出能看懂的提示。
+[harness/llm.py#L19-L31](../harness/llm.py#L19-L31)。`api_key_env` 为 `null` 时不要 key(本地模型)。`isascii()` 这一行来自一次真实报错:key 被设成了“你的key”,HTTP 头只能是 latin-1 编码,于是报 `UnicodeEncodeError`。现在会直接给出能看懂的提示。
 
 ### 6.3 发请求
 
-[harness/llm.py#L35-L52](../harness/llm.py#L35-L52)
+[harness/llm.py#L37-L60](../harness/llm.py#L37-L60)
 
 ```python
     def request_body(self, messages, tools):
@@ -353,7 +353,7 @@ def make_llm(cfg, name=None):
 
 ### 6.4 统一回复格式
 
-[harness/llm.py#L54-L60](../harness/llm.py#L54-L60)
+[harness/llm.py#L62-L69](../harness/llm.py#L62-L69)
 
 ```python
         message = data["choices"][0]["message"]
@@ -369,7 +369,22 @@ def make_llm(cfg, name=None):
 
 ### 6.5 trace 记下是哪个模型
 
-每个 trace 文件第一行是 `{"kind": "llm", "data": {"name": "gpt", "model": "gpt-4.1-mini", "url": ...}}`(来自 [describe](../harness/llm.py#L31))。场景测试的目录名也带模型名:`traces/scenarios/<时间>_<变体>_<模型名>/`。
+每个 trace 文件第一行是 `{"kind": "llm", "data": {"name": "gpt", "model": "gpt-6.2-astra", "url": ...}}`(来自 [describe](../harness/llm.py#L33))。场景测试的目录名也带模型名:`traces/scenarios/<时间>_<变体>_<模型名>/`。
+
+### 6.6 另一种格式:Responses 接口
+
+gpt-6.2-astra 这类推理模型在 Chat Completions 上**不能同时用工具和推理**(2026-11-18 实测:带工具就要求 `reasoning_effort: none`,而这个模型又不接受 `none`),只能走 OpenAI 的 `/v1/responses`。yaml 里那一段写 `type: responses`,就用 [ResponsesLLM](../harness/llm.py#L72)。
+
+它是 `ChatCompletionsLLM` 的子类,`chat()` 的输入输出和父类一样,所以 `loop.py`、`gateway.py` 一行没改。区别只在发出去前、收回来后各翻译一次:
+
+| | Chat Completions(loop.py 里一直用的) | Responses |
+|---|---|---|
+| 工具说明 | `{"type": "function", "function": {name, ...}}` | 少一层:`{"type": "function", name, ...}`,[to_responses_tools](../harness/llm.py#L109) |
+| 对话 | `messages`:system / user / assistant / tool | `input`:同样的 role,加 `function_call`、`function_call_output` 两种条目,[to_responses_input](../harness/llm.py#L120) |
+| 模型要调工具 | `tool_calls` | `output` 里的 `function_call` 条目,[parse_reply](../harness/llm.py#L89) 翻译回 `tool_calls` |
+| 推理 | DeepSeek 的 `reasoning_content` | `output` 里加密的 `reasoning` 条目;整个 `output` 存在回复的 `responses_output` 里,下一轮原样传回,模型才接得上思路 |
+
+`store: false`:OpenAI 不保存对话(所以要 `include: ["reasoning.encrypted_content"]` 把推理带回来)。
 
 ---
 
