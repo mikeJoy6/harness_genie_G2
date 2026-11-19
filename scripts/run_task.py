@@ -5,6 +5,7 @@
   python3 scripts/run_task.py --real                               真机:交互模式,一行一条指令(运动自动执行)
   python3 scripts/run_task.py --real --confirm                     真机:每次运动前按 y
   python3 scripts/run_task.py --real --llm gpt                     换模型(名字是 harness.yaml 里 llms 下的)
+  python3 scripts/run_task.py --sim                                MuJoCo 仿真(先 source sim/sim_env.sh、起 sim.launch.py,见 sim/README.md)
 """
 import argparse
 import json
@@ -40,6 +41,34 @@ def load_env(path):
                 os.environ[key.strip()] = value
 
 
+def merge_config(base, overlay):
+    """把 overlay 的值盖到 base 上(字典逐层合并,其他类型直接替换)。返回新字典,不改 base。"""
+    result = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = merge_config(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def load_config(sim=False):
+    """harness.yaml + 末端登记表(configs/end_effectors.yaml → motion.end_effectors);sim=True 再叠加 sim.yaml。"""
+    cfg = yaml.safe_load((ROOT / "configs/harness.yaml").read_text(encoding="utf-8"))
+    cfg["motion"]["end_effectors"] = yaml.safe_load((ROOT / "configs/end_effectors.yaml").read_text(encoding="utf-8"))
+    if sim:
+        cfg = merge_config(cfg, yaml.safe_load((ROOT / "configs/sim.yaml").read_text(encoding="utf-8")))
+    return cfg
+
+
+def check_sim_domain():
+    """仿真必须在自己的 ROS 域里:ROS_DOMAIN_ID=4 是真机,在那里跑会把仿真的指令发给真机。"""
+    domain = os.environ.get("ROS_DOMAIN_ID")
+    if domain is None or domain == "4":
+        raise SystemExit(f"ROS_DOMAIN_ID={domain}:--sim 要先 source sim/sim_env.sh(设成 77、只在本机),"
+                         "4 是真机的域")
+
+
 def ask_user(prompt):
     """--confirm / confirm_motion: true 时:打印计划,等人按 y。"""
     return input(f"{prompt}。输入 y 执行:").strip().lower() == "y"
@@ -70,7 +99,7 @@ class Session:
         self.llm = llm
         self.cfg = cfg
         confirm = None                                      # 假机器人:不问也不打印
-        if args.real:
+        if args.real or args.sim:
             if args.confirm or cfg["motion"]["confirm_motion"]:
                 confirm = ask_user
             else:
@@ -86,8 +115,9 @@ class Session:
         self.gateway.poses = poses
         self.gateway.moves = 0
         notes = {name: pose.get("note", "") for name, pose in poses.items()}
-        tools = make_tools(list(poses), notes) + make_experience_tools(self.book.names())
-        system = build_system(self.book.catalog_text())     # 每条指令重读经验,审核通过的新经验马上生效
+        ee = self.gateway.backend.end_effectors()           # 每只手装了什么(URDF 认的)→ 给哪些末端工具、系统提示怎么写
+        tools = make_tools(list(poses), notes, ee) + make_experience_tools(self.book.names())
+        system = build_system(self.book.catalog_text(), ee)  # 每条指令重读经验,审核通过的新经验马上生效
         trace_path = ROOT / "traces" / f"{time.strftime('%Y%m%d_%H%M%S')}.jsonl"
         recent = self.history[-2 * HISTORY_COMMANDS:]
         with open(trace_path, "w", encoding="utf-8") as trace:
@@ -103,23 +133,29 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("task", nargs="?", help="指令;不填则进入交互模式")
     parser.add_argument("--real", action="store_true", help="连接真机")
+    parser.add_argument("--sim", action="store_true", help="连接 MuJoCo 仿真(sim/README.md);和真机同一套 ROS 接口")
     parser.add_argument("--llm", help="用哪个大模型:configs/harness.yaml 里 llms 下的名字,不填用 default_llm")
     parser.add_argument("--plan-only", action="store_true", help="只规划,绝不运动")
     parser.add_argument("--confirm", action="store_true", help="每次运动前等人按 y(默认自动执行)")
     args = parser.parse_args()
 
+    if args.real and args.sim:
+        raise SystemExit("--real 和 --sim 只能选一个")
     load_env(ROOT / ".env")
-    cfg = yaml.safe_load((ROOT / "configs/harness.yaml").read_text(encoding="utf-8"))
+    if args.sim:
+        check_sim_domain()
+    cfg = load_config(sim=args.sim)
     llm = make_llm(cfg, args.llm)
     print(f"[llm] {llm.name}({llm.model})", flush=True)
 
-    if args.real:
+    if args.real or args.sim:
         from harness.backends.ros import RosBackend    # 放这里,假机器人模式才不需要 ROS
         poses = {name: pose["joints"] for name, pose in load_poses().items()}   # 关节绕行时的中转候选
         backend = RosBackend(cfg["vision"], cfg["motion"]["speed_m_s"], debug_dir=ROOT / "traces", poses=poses,
                              gripper_cfg=cfg["motion"]["gripper"], touch_cfg=cfg["motion"]["touch"],
                              tool_axis_tolerance_deg=cfg["motion"]["tool_axis_tolerance_deg"],
-                             body_assist_cfg=cfg["motion"]["body_assist"])
+                             body_assist_cfg=cfg["motion"]["body_assist"], ee_cfg=cfg["motion"]["end_effectors"])
+        print(f"[末端] {backend.end_effectors()}", flush=True)
     else:
         backend = FakeBackend()
 

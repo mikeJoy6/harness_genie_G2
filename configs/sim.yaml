@@ -1,0 +1,18 @@
+# run_task.py --sim 时叠加在 harness.yaml 上(只写和真机不一样的,其余照用 harness.yaml)。
+# 仿真见 sim/README.md:source sim/sim_env.sh,ros2 launch sim/launch/sim.launch.py。
+
+vision:
+  segmenter: ground_truth       # sam3(真机)/ ground_truth(仿真:用仿真发的真值分割图,完美掩码 → 完美坐标,不用开 SAM 3 服务)
+  ground_truth:
+    seg_topic: /sim/camera/head_seg     # 16UC1,每个像素是哪个物体,和彩色 / 深度同一时间戳
+    objects_topic: /sim/objects         # JSON 编号表 [{"index", "name", "labels"}],find_objects 的名字按 labels 匹配
+
+motion:
+  gripper:
+    sim_models: from_urdf       # 不连 GDK(会连到真机);型号按 URDF 里装的末端报(sim.launch.py 的 left_ee / right_ee),
+                                #   omnipicker → "omnipicker",suction / none → ""(harness 的 gripper 工具只管夹爪)
+  end_effectors:
+    suction:
+      types:                    # 仿真吸盘(suction_control 的 sim 驱动,调仿真的 /sim/suction/<side> 服务)
+        left: sim_left
+        right: sim_right

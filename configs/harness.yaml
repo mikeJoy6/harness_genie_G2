@@ -40,8 +40,8 @@ agent:
 
 motion:
   speed_m_s: 0.08           # 末端速度
-  # 下面的“末端”都是手臂链末端 = TCP(tcp_*_link,夹爪尖;hardware.launch end_effector:=true 的 URDF 才有,
-  #   没有时退回法兰 arm_*_end_link,那时这些高度要加 0.128m)。2026-11-13 从法兰改到 TCP。
+  # 下面的“末端”都是手臂链末端 = TCP(tcp_*_link)。TCP 只在 URDF 里定义(agi@g2_robot 的 urdf/end_effectors/,
+  #   启动时 left_ee / right_ee 选末端):omnipicker = 闭合指尖,suction = 吸盘端面;none(没装)= 法兰 arm_*_end_link。
   standoff_default_m: 0.12  # approach_object:夹爪尖停在物体上方多高(原法兰 0.25 = 夹爪尖 0.122)
   standoff_min_m: 0.03
   standoff_max_m: 0.30
@@ -77,7 +77,7 @@ motion:
     approach_object: [comfort, keep, free]   # 去物体上方:先求舒服
     move_arm_end: [keep, free]               # “上抬 10 厘米”:先保持手腕姿态,够不着再放松
 
-  arm_reach_m: 0.80         # 肩心到夹爪尖伸直最远 L1+L2+0.09+0.128 ≈ 0.83m;find_objects 用它报 reachable_by
+  arm_reach_m: 0.80         # 肩心到 TCP 伸直最远(吸盘时 L1+L2+0.09+0.128 ≈ 0.83m;omnipicker 的 TCP 更远一点);find_objects 用它报 reachable_by
   touch:                    # touch_object:唯一会碰到物体、最后一段只放过物体附近点云的运动(RosBackend.plan_touch)
     default_gap_cm: 2       # 夹爪尖停在物体表面前多少厘米(物体坐标是可见表面的中位点)
     max_gap_cm: 10
@@ -91,7 +91,7 @@ motion:
     keep_out:               # 最后一段 MoveIt 不查点云,改成自己用几何查(harness/touch_keep_out.py,2026-11-14 撞桌面后加)
       object_radius_m: 0.08 # 物体坐标(可见表面中位点)这么近的点云格可以碰:物体自己,和它正下方的一点台面
       gripper_radius_m: 0.04  # 夹爪近似成胶囊:半径
-      gripper_length_m: 0.13  # 从夹爪尖往回多长(TCP 到法兰 0.128m)
+      gripper_length_m: 0.13  # 从 TCP 往回多长(吸盘 TCP 到法兰 0.128m;omnipicker 约 0.16m,还没按末端分开)
     force:                  # 最后一段边走边看末端六维力(harness/backends/wrench_gdk.py,2026-11-14 加)
       enabled: true         # 收不到力时自动退回“只走到接触点”
       frames: {left: arm_l_end_link, right: arm_r_end_link}   # /gdk/motion_control_status 里的名字

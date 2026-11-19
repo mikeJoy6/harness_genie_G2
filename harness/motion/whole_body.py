@@ -54,8 +54,10 @@ class JointPlan:
 
 
 # 每个关节组动的时候,哪些 link 跟着动(按 G2 URDF 的 link 名前缀)。body 一动,上面的手臂、头全都跟着动。
-MOVING_LINKS = {"left_arm": ("arm_l_", "tcp_l_"), "right_arm": ("arm_r_", "tcp_r_"), "head": ("head_link",)}
-ROBOT_LINKS = ("arm_", "tcp_", "head_", "body_", "base_link", "chassis")
+#   末端:omnipicker 是 gripper_<l|r>_*,吸盘是 suction_<l|r>_link(agi@g2_robot 的 urdf/end_effectors/)
+MOVING_LINKS = {"left_arm": ("arm_l_", "tcp_l_", "gripper_l_", "suction_l_"),
+                "right_arm": ("arm_r_", "tcp_r_", "gripper_r_", "suction_r_"), "head": ("head_link",)}
+ROBOT_LINKS = ("arm_", "tcp_", "gripper_", "suction_", "head_", "body_", "base_link", "chassis")
 
 
 def _moves(body, groups):

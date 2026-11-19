@@ -1,11 +1,11 @@
 """Agent 循环:问模型 → 执行它要的工具 → 把结果告诉它 → 再问,直到它不再调用工具。"""
 import json
 
-SYSTEM_BASE = """# 你是谁
+SYSTEM_TEMPLATE = """# 你是谁
 智元 G2 人形机器人的任务助手,只能通过提供的工具了解和操作机器人。用户用什么语言,你就用什么语言回答。
 
 # 机器人的事实
-- 只有右手装了夹爪;用户没说哪只手就用右手。
+{hands}
 - 没有底盘,不能走。手臂从肩膀算起大约能伸 0.8 米,够不着时程序会自动前倾 / 转腰帮忙;够不够得着以工具返回为准,不要自己猜,也不要建议移动底盘。
 - 物体只能用 find_objects 找(英文名词),之后用它给的编号指代;坐标都由工具算,不要自己编。
 - get_robot_state 里的 holding 是程序按夹爪动作推测的“手里拿着什么”,没有验证过。手里的东西不在碰撞检查里。
@@ -25,14 +25,45 @@ SYSTEM_BASE = """# 你是谁
 - 任务里学到值得下次参考的做法或教训,可以用 propose_experience 提议(人审核后才生效)。"""
 
 
-def build_system(catalog_text=""):
-    """SYSTEM = 固定部分 + 经验目录(ExperienceBook.catalog_text,每条一行)。"""
+HAND_NAME = {"left": "左手", "right": "右手"}
+# 没告诉末端时(单元测试、假机器人)按以前的样子:只有右手有夹爪
+DEFAULT_END_EFFECTORS = {"left": "none", "right": "omnipicker"}
+
+
+def hands_fact(end_effectors):
+    """系统提示里“每只手装了什么”那一行。end_effectors:{arm: "omnipicker" / "suction" / "none"}。"""
+    if end_effectors == DEFAULT_END_EFFECTORS:
+        return "- 只有右手装了夹爪;用户没说哪只手就用右手。"
+    parts = []
+    for arm in ("left", "right"):
+        kind = end_effectors.get(arm, "none")
+        if kind == "omnipicker":
+            parts.append(f"{HAND_NAME[arm]}是夹爪(gripper 开 / 合,张开时两指间最宽约 8.4 厘米)")
+        elif kind == "suction":
+            parts.append(f"{HAND_NAME[arm]}是吸盘(suction 吸 / 放,没有夹爪)")
+        else:
+            parts.append(f"{HAND_NAME[arm]}什么都没装")
+    usable = [arm for arm in ("left", "right") if end_effectors.get(arm, "none") != "none"]
+    if len(usable) == 1:
+        rule = f"用户没说哪只手就用{HAND_NAME[usable[0]]}"
+    elif usable:
+        rule = "用户没说哪只手,就用 find_objects 的 reachable_by 里够得着的那只"
+    else:
+        rule = "两只手都不能抓东西"
+    return "- 末端:" + ";".join(parts) + "。" + rule + "。"
+
+
+def build_system(catalog_text="", end_effectors=None):
+    """SYSTEM = 固定部分(含每只手装了什么)+ 经验目录(ExperienceBook.catalog_text,每条一行)。
+    end_effectors:{arm: 末端类型},backend.end_effectors() 给的;不给按 DEFAULT_END_EFFECTORS。"""
+    text = SYSTEM_TEMPLATE.replace("{hands}", hands_fact(end_effectors or DEFAULT_END_EFFECTORS))
     if not catalog_text:
-        return SYSTEM_BASE
-    return SYSTEM_BASE + "\n\n# 经验目录\n" + catalog_text
+        return text
+    return text + "\n\n# 经验目录\n" + catalog_text
 
 
-SYSTEM = build_system()
+SYSTEM_BASE = build_system()
+SYSTEM = SYSTEM_BASE
 
 
 def run_agent(task, llm, gateway, tools, max_steps=20, trace=None, system=None, history=None):

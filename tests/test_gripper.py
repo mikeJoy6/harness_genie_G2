@@ -55,7 +55,7 @@ def test_left_gripper_missing_reports_failure():
     backend, gateway = gateway_for(FakeBackend(grippers=ONLY_RIGHT))
     result = gateway.execute("gripper", {"arm": "left", "action": "open"})
     assert not result["ok"] and not result["executed"]
-    assert "没有识别到夹爪" in result["error"]
+    assert "没有夹爪" in result["error"]                 # 程序按 URDF / 型号知道左手没装,不发命令
 
 
 def test_bad_arguments():
@@ -112,9 +112,30 @@ def test_agent_sees_left_failure():
                        {"role": "assistant", "content": "左手夹爪打不开"}])
     run_agent("打开左手夹爪", llm, gateway, make_tools())
     last_tool_message = llm.seen[-1][-1]
-    assert last_tool_message["role"] == "tool" and "没有识别到夹爪" in last_tool_message["content"]
+    assert last_tool_message["role"] == "tool" and "没有夹爪" in last_tool_message["content"]
 
 
 def test_tools_listed():
     names = [t["function"]["name"] for t in make_tools()]
     assert "gripper" in names and "wait" in names
+
+
+# ---- 末端按手区分(2026-11-19):工具、拒绝、吸盘 ----
+
+def test_tools_follow_end_effectors():
+    names = {t["function"]["name"]: t for t in make_tools(end_effectors={"left": "suction", "right": "omnipicker"})}
+    assert names["gripper"]["function"]["parameters"]["properties"]["arm"]["enum"] == ["right"]
+    assert names["suction"]["function"]["parameters"]["properties"]["arm"]["enum"] == ["left"]
+    bare = {t["function"]["name"] for t in make_tools(end_effectors={"left": "none", "right": "none"})}
+    assert "gripper" not in bare and "suction" not in bare
+
+
+def test_suction_on_suction_arm_and_refused_elsewhere():
+    backend, gateway = gateway_for(FakeBackend(end_effectors={"left": "suction", "right": "omnipicker"}))
+    on = gateway.execute("suction", {"arm": "left", "action": "on"})
+    assert on["ok"] and on["executed"] and backend.suction_calls == [("left", "on")]
+    wrong = gateway.execute("suction", {"arm": "right", "action": "on"})
+    assert not wrong["ok"] and not wrong["executed"] and "装的是夹爪" in wrong["error"]
+    no_gripper = gateway.execute("gripper", {"arm": "left", "action": "close"})
+    assert not no_gripper["ok"] and "装的是吸盘" in no_gripper["error"]
+    assert gateway.execute("suction", {"arm": "left", "action": "off"})["holding"] is None

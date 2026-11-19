@@ -1,0 +1,48 @@
+# 末端登记表:每种末端一段。run_task.py 读进 cfg["motion"]["end_effectors"](configs/sim.yaml 可以覆盖)。
+#
+# 每只手装的是哪种末端,不在这里写:harness 从 URDF 认(harness/motion/kin.py 的 end_effector),
+#   URDF 由 hardware.launch.py / sim.launch.py 的 left_ee / right_ee 决定(agi@g2_robot 的 urdf/end_effectors/)。
+# MoveIt 只管末端的形状(URDF / SRDF),不管末端怎么动;怎么动由这里的 driver 决定,harness 直接调。
+#
+# 每段的键:
+#   name          中文名(工具说明、系统提示里用)
+#   tool          给大模型的工具:gripper(开 / 合)/ suction(吸 / 放)/ null(没有)
+#   driver        gdk_servo:harness/backends/gripper_gdk.py,发一个目标位置,夹爪自带减速器跑过去(不插值)
+#                 suction_control:agi@g2_robot 的 suction_control 包,按 types 里的类型名选驱动
+#   arm_reach_m   肩心到 TCP 伸直最远多少米:find_objects 用它报 reachable_by
+#   touch_retreat_m  touch_object 碰到东西(六维力)后沿接近方向往回退多少米:夹爪要留闭合的空间,吸盘要贴着
+#   keep_out      touch_object 最后一段(只放过物体附近的点云)的几何检查,末端近似成胶囊:
+#                   gripper_radius_m 半径;gripper_length_m 从 TCP 往回多长(一般 = TCP 到法兰)
+
+omnipicker:
+  name: 夹爪
+  tool: gripper
+  driver: gdk_servo
+  open_width_m: 0.084       # 张开时两指间最宽(官方模型量的,2026-11-19):比这宽的东西夹不进去,要从窄的方向夹
+  arm_reach_m: 0.83         # 吸盘时实测用 0.80,omnipicker 的 TCP 比吸盘远 0.03
+  touch_retreat_m: 0.02     # 碰到后退 2cm 再闭合
+  keep_out:
+    gripper_radius_m: 0.05  # 张开时指尖离中心最远约 7cm,闭合 3cm;下探时是张开的,但最后一段只到物体附近,取 5cm
+    gripper_length_m: 0.16  # TCP(闭合指尖)离法兰 0.1585m
+
+suction:
+  name: 吸盘
+  tool: suction
+  driver: suction_control
+  types:                    # suction_control 的吸盘类型名(agi@g2_robot/src/suction_control/config/suctions.yaml);
+    left: evs08_left        #   null = 这只手没有可用的吸盘驱动(工具会报错,不会乱动)
+    right: null
+  arm_reach_m: 0.80
+  touch_retreat_m: 0.0      # 贴着不退,退了就吸不住(2026-11-19 仿真:退 2cm 后吸盘悬在积木上方吸不到)
+  keep_out:
+    gripper_radius_m: 0.04  # 长方体 11.6×10.2cm,外接圆半径 7.7cm;以前一直用 4cm,没出过问题,先不改
+    gripper_length_m: 0.13  # TCP(吸盘端面)离法兰 0.128m
+
+none:
+  name: 没装
+  tool: null
+  arm_reach_m: 0.67         # TCP 就是法兰
+  touch_retreat_m: 0.02
+  keep_out:
+    gripper_radius_m: 0.04
+    gripper_length_m: 0.02

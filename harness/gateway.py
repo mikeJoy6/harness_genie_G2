@@ -20,6 +20,7 @@ from .perception.sam3_objects import slug
 ARMS = ("left", "right")
 ARM_NAME = {"left": "左臂", "right": "右臂"}
 HAND_NAME = {"left": "左手", "right": "右手"}
+EE_TEXT = {"omnipicker": "装的是夹爪", "suction": "装的是吸盘", "none": "什么都没装"}
 GROUP_NAME = {"body": "腰", "head": "头", "left_arm": "左臂", "right_arm": "右臂"}
 LIMIT_MARGIN_RAD = 0.02         # 目标关节角离 URDF 限位至少留这么多
 
@@ -118,6 +119,7 @@ class Gateway:
                     "touch_object": self._touch_object,
                     "take_photo": self._take_photo,
                     "gripper": self._gripper,
+                    "suction": self._suction,
                     "wait": self._wait,
                     "read_experience": self._read_experience,
                     "propose_experience": self._propose_experience}
@@ -150,13 +152,28 @@ class Gateway:
             self.objects[obj["id"]] = {"xyz_m": list(obj["xyz_m"]), "time": now, "label": query}
             reach = {arm: round(math.dist(obj["xyz_m"], shoulders[arm]), 2) for arm in ARMS}
             obj["shoulder_distance_m"] = reach
-            obj["reachable_by"] = [arm for arm in ARMS if reach[arm] <= self.cfg["arm_reach_m"]]
+            obj["reachable_by"] = [arm for arm in ARMS if reach[arm] <= self._arm_reach(arm)]
         if not result["objects"]:
             return {**result, "ok": False, "error": f"画面里没有找到 {query}"}
+        limits = "、".join(f"{HAND_NAME[arm]} {self._arm_reach(arm)}m" for arm in ARMS)
         return {**result, "count": len(result["objects"]), "order": "按离相机由近到远,第一个最近",
-                "reach_note": f"reachable_by:按现在的腰姿态,离这只手的肩 ≤ {self.cfg['arm_reach_m']}m 的才可能够得着。"
+                "reach_note": f"reachable_by:按现在的腰姿态,离这只手的肩不超过({limits},按装的末端算)的才可能够得着。"
                               f"空也可以直接调 approach_object / touch_object:够不着时程序会自动前倾"
                               f"(≤{self.cfg['body_assist']['max_lean_deg']}°)/ 转腰帮忙;机器人没有底盘移动工具,不要建议走过去"}
+
+    def _end_effectors(self):
+        """{arm: "omnipicker" / "suction" / "none"};backend 没有这个功能(老的假机器人)时返回 None。"""
+        if hasattr(self.backend, "end_effectors"):
+            return self.backend.end_effectors()
+        return None
+
+    def _arm_reach(self, arm):
+        """肩心到 TCP 最远多少米:按这只手装的末端查 configs/end_effectors.yaml,查不到用 motion.arm_reach_m。"""
+        ee = self._end_effectors()
+        table = self.cfg.get("end_effectors") or {}
+        if ee is not None and ee.get(arm) in table and "arm_reach_m" in table[ee[arm]]:
+            return table[ee[arm]]["arm_reach_m"]
+        return self.cfg["arm_reach_m"]
 
     def _object(self, object_id):
         """按编号取 find_objects 找到的物体。返回 (物体, None) 或 (None, 错误结果)。"""
@@ -327,6 +344,10 @@ class Gateway:
             return {"ok": False, "error": f"arm 只能是 {list(ARMS)}"}
         if action not in ("open", "close"):
             return {"ok": False, "error": "action 只能是 open(打开)或 close(闭合)"}
+        ee = self._end_effectors()
+        if ee is not None and ee.get(arm) != "omnipicker":
+            return {"ok": False, "executed": False,
+                    "error": f"{HAND_NAME[arm]}{EE_TEXT.get(ee.get(arm), '装的不是夹爪')},没有夹爪"}
         refused = self._no_moves_left()
         if refused:
             return refused
@@ -344,6 +365,36 @@ class Gateway:
         executed = bool(result.get("ok"))
         if executed:
             self._update_holding(arm, action)
+        return {**result, "executed": executed, **info, "holding": self.holding[arm]}
+
+    def _suction(self, args):
+        """开 / 关吸盘。算一次运动,和夹爪一样走只规划 / 确认。"""
+        arm, action = args.get("arm"), args.get("action")
+        if arm not in ARMS:
+            return {"ok": False, "error": f"arm 只能是 {list(ARMS)}"}
+        if action not in ("on", "off"):
+            return {"ok": False, "error": "action 只能是 on(吸)或 off(放)"}
+        ee = self._end_effectors()
+        if ee is None or ee.get(arm) != "suction":
+            kind = None if ee is None else ee.get(arm)
+            return {"ok": False, "executed": False,
+                    "error": f"{HAND_NAME[arm]}{EE_TEXT.get(kind, '装的不是吸盘')},没有吸盘"}
+        refused = self._no_moves_left()
+        if refused:
+            return refused
+        info = {"arm": arm, "action": action}
+        what = f"{HAND_NAME[arm]}吸盘{'开吸' if action == 'on' else '放开'}"
+        if self.plan_only:
+            return {"ok": True, "executed": False, "note": f"只规划模式,{what}没有执行", **info}
+        if self.confirm and not self.confirm(what):
+            return {"ok": False, "executed": False, "error": "用户拒绝了这次吸盘动作", **info}
+        self.moves += 1
+        result = self.backend.suction_command(arm, action)
+        executed = bool(result.get("ok"))
+        if executed:
+            self._update_holding(arm, "close" if action == "on" else "open")
+            if action == "on" and result.get("attached") is False:
+                self.holding[arm] = {"object_id": None, "basis": "吸盘开着,但没吸住东西(吸盘没贴到物体表面?)"}
         return {**result, "executed": executed, **info, "holding": self.holding[arm]}
 
     def _update_holding(self, arm, action):

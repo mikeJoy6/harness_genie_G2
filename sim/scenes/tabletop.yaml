@@ -1,0 +1,66 @@
+# 桌面场景。坐标都是 base_link(机器人底座,仿真里固定在世界原点),米。
+#   物体 pos 只写 [x, y] = 放在桌面上;写 [x, y, z] = 物体中心在这里。
+#   labels:find_objects(query) 用的英文名,query 和其中一个相同(不分大小写、单复数)就算找到。
+#   shape / size:box [长 宽 高];cylinder [半径 高];sphere [半径];capsule [半径 长];
+#     parts 可以组合多个几何体(人),每个可以有 pos(相对物体中心)或 fromto。
+#   fixed: true = 不会动(人、手);否则受重力、能被夹起来。
+#   和 scenarios/*.yaml 里的假世界尽量同一个布局:鼠标 (0.65, -0.20),手 (0.76, -0.05, 0.77)。
+
+initial_pose: init            # configs/poses.yaml 里的位姿名,仿真开始时机器人在这个姿态
+
+table:
+  center: [0.80, -0.05]
+  size: [0.70, 1.20]          # x 方向(前后)、y 方向(左右)
+  top_z: 0.69
+
+objects:
+  - name: mouse_1
+    labels: [mouse, computer mouse]
+    shape: box
+    size: [0.10, 0.06, 0.035]
+    pos: [0.65, -0.20]
+    mass: 0.09
+    rgba: [0.15, 0.15, 0.17, 1]
+
+  - name: red_block_1
+    labels: [red block, block, red cube, cube]
+    shape: box
+    size: [0.04, 0.04, 0.04]
+    pos: [0.58, 0.05]
+    mass: 0.05
+    rgba: [0.85, 0.1, 0.1, 1]
+
+  - name: phone_1
+    labels: [phone, cell phone, mobile phone, smartphone]
+    shape: box
+    size: [0.15, 0.075, 0.009]
+    pos: [0.72, 0.22]
+    yaw_deg: 15
+    mass: 0.18
+    rgba: [0.05, 0.05, 0.06, 1]
+
+  - name: cup_1
+    labels: [cup, mug]
+    shape: cylinder
+    size: [0.04, 0.09]
+    pos: [0.80, -0.42]
+    mass: 0.15
+    rgba: [0.95, 0.95, 0.95, 1]
+
+  - name: person_1            # 站在桌子对面
+    labels: [person, man, people]
+    fixed: true
+    pos: [1.45, -0.05, 0.0]
+    parts:
+      - {shape: box, size: [0.22, 0.40, 0.60], pos: [0, 0, 1.15], rgba: [0.2, 0.35, 0.6, 1]}     # 上身
+      - {shape: sphere, size: [0.11], pos: [0, 0, 1.58], rgba: [0.9, 0.75, 0.62, 1]}           # 头
+      - {shape: box, size: [0.22, 0.36, 0.85], pos: [0, 0, 0.42], rgba: [0.25, 0.25, 0.3, 1]}   # 腿
+      - {shape: capsule, size: [0.04], fromto: [-0.05, 0.0, 1.35, -0.60, 0.0, 0.79], rgba: [0.2, 0.35, 0.6, 1]}  # 伸出来的手臂
+
+  - name: hand_1              # 那个人的手,手心朝上悬在桌面上方
+    labels: [hand, palm]
+    fixed: true
+    shape: box
+    size: [0.18, 0.09, 0.03]
+    pos: [0.76, -0.05, 0.755]
+    rgba: [0.9, 0.75, 0.62, 1]

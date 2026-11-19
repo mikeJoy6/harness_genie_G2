@@ -6,6 +6,7 @@
 """
 import math
 import os
+import sys
 import time
 
 import numpy as np
@@ -18,8 +19,10 @@ from harness.backends.ros import RosBackend  # noqa: E402
 from harness.motion.algorithms import ArmSolver  # noqa: E402
 from harness.motion.kin import arm_kin, body_kin  # noqa: E402
 
-URDF_PATH = os.environ.get("G2_URDF", os.path.expanduser(
-    "~/agi@g2_robot/src/genie_robot_description/urdf/G2_t2_crsB/G2_t2_crsB_ee.urdf"))   # 真机用的,有 TCP
+sys.path.insert(0, os.path.dirname(__file__))
+from g2_urdf import g2_urdf  # noqa: E402
+
+URDF_TEXT = g2_urdf("suction", "suction")    # 两只手吸盘(TCP 在法兰前 0.128m),和这些测试写的时候一样
 MOUSE = np.array([0.7931, -0.1413, 0.7195])                 # 真机 2026-11-13 01:55 的鼠标
 BODY0 = np.radians([-39.85, 89.9, -49.62, 0, 0])
 RIGHT0 = np.radians([-112.2, 36.57, 85.82, -99.41, 127.79, 12.84, 21.11])
@@ -50,10 +53,10 @@ def make_backend(obstacle_radius_m, line_works=True, cloud=None, wrench=None, ta
     """line_works=False:直线和末端绕障都规划不通(只剩关节空间)。
     cloud:octomap_base() 返回的点云格(base_link),给 touch 最后一段的几何检查用;默认没有。
     wrench:None = 没有六维力;"ok" = 夹爪尖低于 table_z 时力 20N;"silent" = 收不到;"lost" = 走着走着断了。"""
-    if not os.path.exists(URDF_PATH):
-        pytest.skip(f"没有 URDF {URDF_PATH}")
+    if URDF_TEXT is None:
+        pytest.skip("agi@g2_robot 没编译,展开不了 genie.urdf.xacro")
     from urdf_parser_py.urdf import URDF
-    urdf = open(URDF_PATH, encoding="utf-8").read()
+    urdf = URDF_TEXT
     bk = body_kin(urdf)
     solver = ArmSolver(arm_kin(urdf, "right"))
     limits = {j.name: (j.limit.lower, j.limit.upper) for j in URDF.from_xml_string(urdf).joints if j.limit is not None}
@@ -169,6 +172,7 @@ def make_backend(obstacle_radius_m, line_works=True, cloud=None, wrench=None, ta
     b.arm, b.body, b.speed, b._comfort, b._limits = Arm(), Body(), 0.05, {}, limits
     b.tool_axis_tolerance_deg = 15.0
     b.touch = TOUCH
+    b.ee_cfg = {}                     # 不按末端查表:胶囊尺寸用 TOUCH 里的
     b.body_assist = {"enabled": True, "max_lean_deg": 30, "max_turn_deg": 20, "speed_rad_s": 0.1}
     b._lowest_z = lambda arm, path: 0.0
     b.joint_state = lambda: {n: float(v) for n, v in zip(bk.joint_names, state["qb"])}

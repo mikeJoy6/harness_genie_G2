@@ -2,6 +2,115 @@
 
 设计文档在 [docs/](docs/index.md),这里只记每天做了什么、遇到什么问题。
 
+# 2026.11.19
+
+## 末端:MoveIt 只管形状,驱动按登记表;MuJoCo 4;仿真里控制末端
+
+用户否掉“夹爪接进 ros2_control / MoveIt 规划组”:末端自带减速器,JTC 插值多余;接进 MoveIt 要按末端改控制配置,损害适配。定下分层:**几何**(URDF/SRDF 宏,已有)/ **状态**(`gripper_joint_state.py`,只为 TF)/ **驱动**(harness 直接调)/ **工具**(按末端给大模型)。MoveIt 保持 4 个规划组。
+
+1. **末端登记表** [configs/end_effectors.yaml](configs/end_effectors.yaml):每种末端的工具、驱动、`arm_reach_m`、`touch_retreat_m`、碰撞胶囊;run_task 读进 `motion.end_effectors`,sim.yaml 把吸盘驱动换成仿真的。
+2. **harness 按末端**:`backend.end_effectors()`(从 URDF 认);工具按手生成(夹爪 → `gripper`,吸盘 → 新的 `suction`,没装 → 不给);系统提示的“每只手装了什么”按实际生成(`loop.hands_fact`);gateway 对没装这种末端的手直接拒绝;`find_objects` 的够得着距离、touch 最后一段的碰撞胶囊、touch 碰到后退多少都按那只手的末端。不告诉末端时(老测试、场景测试)行为不变。
+3. **吸盘**:`RosBackend.suction_command` 调 agi@g2_robot 的 `suction_control`(真机 evs08_left);suction_control 新加 `sim` 驱动(`sim_left` / `sim_right`,调仿真的 `/sim/suction/<side>` 服务)。
+4. **MuJoCo 4.0.1**:4.x 要 Python ≥3.11,rclpy 只有 3.10 → 仿真拆两个进程:[sim/physics.py](sim/physics.py)(uv 建的 Python 3.12,MuJoCo 4.0.1,不碰 ROS)+ [sim/ros_bridge.py](sim/ros_bridge.py)(系统 3.10,rclpy),Unix 套接字([sim/link.py](sim/link.py),JSON + 原始字节;两边 numpy 版本不同所以不用 pickle)。场景检查数值和 3.17 完全一样。旧环境改名 `~/mujoco_sim/.venv-py310-mujoco317`。
+5. **仿真吸盘**:吸盘开着、一碰到能动的物体就用焊接约束粘住(scene.py 预建、默认关;约束调硬到 4ms),关掉松开;吸住的物体重量计入六维力。
+6. **仿真里控制末端**:[sim/panel.py](sim/panel.py) 面板(sim.launch 默认开,按装的末端生成按钮:夹爪张开 / 闭合、吸盘吸 / 放 + 状态、物体复位)+ [sim/ee.py](sim/ee.py) 命令行;都走真机同一接口(夹爪 GdkGripper 发 GDK 伺服,吸盘 suction_control)。
+7. **端到端(DeepSeek,左手吸盘 + 右手夹爪)“用左手吸盘把红色积木吸起来”**:第一次没成——touch 碰到后按夹爪的规矩退 2cm,吸盘悬在积木上方吸不到(大模型如实说了)。改成退多少按末端:吸盘 0。再跑:第一次贴上去开吸没吸住——力控停下后手臂微微回弹,吸盘离开积木零点几毫米;仿真吸盘改成 5mm 以内就能吸(margin = gap = 5mm,只检测不产生力,真皮碗也有弹性)。**之后一次成功**:touch 力变化 6.2N 停、不退 → suction on → attached true → 抬 12cm,积木跟着走;积木被吸盘挡住看不见,大模型按“原位置没了 + attached”判断在手上。另:面板被 rclpy 接管了 SIGINT / SIGTERM 关不掉,改成自己处理信号。
+
+踩坑:新建的 ROS 服务客户端第一次调用的回复偶尔会丢(仿真吸盘驱动重试 3 次);rclpy 退出前要先停 spin 线程,否则 `terminate called without an active exception`;tkinter 只能在主线程改界面。
+
+```bash
+# MuJoCo 4(一次)
+cd ~/mujoco_sim && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python "mujoco==4.0.1" numpy opencv-python-headless pyyaml
+# 仿真(RViz + MuJoCo 窗口 + 末端面板)
+source ~/robot_harness/sim/sim_env.sh
+ros2 launch ~/robot_harness/sim/launch/sim.launch.py left_ee:=suction right_ee:=omnipicker
+# 末端命令行
+python3 ~/robot_harness/sim/ee.py                 # 装了什么 / 吸盘状态
+python3 ~/robot_harness/sim/ee.py right close
+python3 ~/robot_harness/sim/ee.py left suck
+python3 ~/robot_harness/sim/ee.py reset
+# suction_control 改了要编译
+cd ~/agi@g2_robot && colcon build --packages-select suction_control
+```
+
+## 末端整理:一份机身 + 按参数选末端(agi@g2_robot)
+
+**后续(同一天)**:用户定默认两只手都是 omnipicker(不写 left_ee 不报错);仿真加了 MuJoCo 窗口(`viewer:=true` 默认开,GLFW 窗口和 EGL 离屏渲染共存,仍是实时)。
+
+```bash
+source ~/robot_harness/sim/sim_env.sh
+ros2 launch ~/robot_harness/sim/launch/sim.launch.py                    # RViz + MuJoCo 窗口,两手 omnipicker
+ros2 launch ~/robot_harness/sim/launch/sim.launch.py viewer:=false      # 不开 MuJoCo 窗口
+```
+
+用户:总换末端,吸盘长方体、harness 加载的 URDF、TCP 放在 URDF 之外,乱成一锅粥。定下来:**一份配置加参数**(不复制粘贴)。说明见 agi@g2_robot 的 [end_effectors/README.md](../agi@g2_robot/src/genie_robot_description/urdf/end_effectors/README.md)。
+
+- **参数**:`left_ee` / `right_ee` = `none`(彻底没有)/ `suction`(黑色长方体吸盘)/ `omnipicker`,默认右 omnipicker、左 none(真机现状)。代替 `end_effector:=true` 和 `G2_t2_crsB_ee.urdf`(已删)。
+- **末端宏**:`urdf/end_effectors/suction.xacro`(以前 end_link 上的长方体,挪成 `suction_*_link`)、`omnipicker.xacro`(从官方 G2_t2_crsB_omnipicker.urdf 用脚本原样截取)。**TCP 只在宏里定义**:吸盘端面 0.128;omnipicker 闭合指尖,`omnipicker_tcp_z` 在 [omnipicker.xacro 第 17 行](../agi@g2_robot/src/genie_robot_description/urdf/end_effectors/omnipicker.xacro#L17),参考值 0.1585(仿真模型量的),用户用尺子量了自己填。
+- **SRDF**:`genie.srdf` 加了同样两个 xacro 参数,末端那几对不检查碰撞按参数包含。omnipicker 随机 300 个右臂姿态验证:初始姿态无碰撞,没有每次都碰的对(最多 15/300,都是真碰到腰 / 头)。
+- **参考 G1**(genie_framework 的 A2D.urdf):TCP 挂在夹爪上、只调 z;另一指 mimic。G2 官方 omnipicker 结构和 G1 官方一样(7 个 mimic 近似四连杆),碰撞用官方的扫掠包络(指头无碰撞体,张开闭合都包住),所以 MoveIt 不用知道开合。
+- **夹爪状态**:GDK 不回报夹爪位置,装了 omnipicker 后 move_group 每秒报 "Missing idx71_gripper_r_inner_joint1",RSP 发不出指头 TF。加了 `genie_robot_agibot_g2_hardware/scripts/gripper_joint_state.py`:把 `/gdk/joint_control` 里夹爪最后一次指令发到 `/joint_states`。hardware.launch.py 和 sim.launch.py 都起它。
+- **改到的地方**:hardware.launch.py、lidar_view.launch.py(以前直接读 _ee.urdf)、slot_insert_sim(固定两手吸盘)、task_board_pose / attach_board.py(纸板 touch_links 加 `suction_*_link`,长方体不在 end_link 上了)、TASKS.md。agi@g2_robot 的 DEVLOG.md 有用户没提交的改动,没动。
+- **9 种组合**全部 xacro 展开 + check_urdf 通过,TCP 位置对,SRDF 引用的 link 都存在。仿真两种组合(默认、两手吸盘)启动后 MoveIt 正常、初始姿态无碰撞、octomap 在长。
+- **harness**:`kin.end_effector()` 从 URDF 认末端,`arm_tip` 装了末端必须有 TCP(没装用法兰,不再有“没 TCP 退回法兰再加 0.128”);碰撞分类的 link 前缀加了 `gripper_` / `suction_`;仿真夹爪型号 `sim_models: from_urdf`;测试改用 xacro 展开的 URDF([tests/g2_urdf.py](tests/g2_urdf.py))。180 个测试 179 过(workspace 那个)。
+- **仿真**:sim.launch.py 同样的 `left_ee` / `right_ee`,scene.py 按参数删夹爪 / 换吸盘长方体;omnipicker 底座、指根位姿 MJCF 和 URDF 差 0.00mm。
+
+```bash
+# 真机(由用户启动)
+ros2 launch genie_robot_agibot_g2_hardware hardware.launch.py left_ee:=none right_ee:=omnipicker
+ros2 launch genie_robot_agibot_g2_hardware hardware.launch.py left_ee:=suction right_ee:=suction
+# 仿真
+ros2 launch ~/robot_harness/sim/launch/sim.launch.py left_ee:=none right_ee:=omnipicker
+# 改了 agi@g2_robot 的 URDF / launch 后要重新编译(不是 symlink 安装)
+cd ~/agi@g2_robot && colcon build --packages-select genie_robot_description genie_moveit_config genie_robot_agibot_g2_hardware
+# 看展开后的 URDF
+xacro ~/agi@g2_robot/install/genie_moveit_config/share/genie_moveit_config/config/genie.urdf.xacro left_ee:=none right_ee:=omnipicker > /tmp/g2.urdf && check_urdf /tmp/g2.urdf
+```
+
+## MuJoCo 仿真(方案 B:ROS 层,octomap 也在)
+
+用户选 MuJoCo + 方案 B(接在 ROS 层),SAM 3 认不认得仿真画面先不管,直接给完美坐标。说明见 [sim/README.md](sim/README.md)。
+
+1. **安装在项目外**:`~/mujoco_sim/.venv`,Python 3.10(ROS Humble 的 rclpy 只能 3.10)+ MuJoCo **3.17.0**(4.x 要 ≥3.11)+ `numpy<2`(系统 cv2 按 numpy 1.x 编的)。
+2. **冒充 GDK**:[sim/g2_sim.py](sim/g2_sim.py) 收发和真机一样的 `/gdk/joint_state`、`/gdk/joint_control`、`/gdk/motion_control_status`(带六维力)、`/gdk/tf`、头部相机。真机插件 `GenieG2ArmHardware` 本来就只走这些话题,所以 ros2_control / 5 个控制器 / MoveIt / 头部点云 → octomap / harness 全部原样跑。[sim/launch/sim.launch.py](sim/launch/sim.launch.py) 照 hardware.launch.py 写(没 include 它)。
+3. **完美坐标**:仿真同一时间戳多发一张真值分割图 `/sim/camera/head_seg`,harness([ground_truth.py](harness/perception/ground_truth.py))把它变成 SAM 3 格式的掩码,后面掩码 + 深度 → 坐标的代码不变。坐标含义和真机一样(可见表面中位点):鼠标 z 0.7253(真顶面 0.725),x 比几何中心靠前 1.3cm(侧面也被看到,真机 SAM 3 一样)。
+4. **harness 改动**:`run_task.py --sim`(叠加 [configs/sim.yaml](configs/sim.yaml),ROS_DOMAIN_ID=4 拒绝运行)、`RosSource` 可配分割图、夹爪 `sim_models` 不连 GDK。测试 [tests/test_ground_truth.py](tests/test_ground_truth.py) 9 个;全部 180 个测试 179 过(失败的还是 workspace 那个)。
+5. **安全**:[sim/sim_env.sh](sim/sim_env.sh) 设 ROS_DOMAIN_ID=77 + ROS_LOCALHOST_ONLY=1,不 source GDK 的 DDS 配置。
+
+**对官方模型的改动和踩坑**(详见 sim/README.md):官方 MJCF 和 URDF 运动学 20 组随机关节角差 0.00mm;但**官方模型里手臂 / 腰 / 头根本不碰撞**(contype=0),重新分了碰撞位;夹爪连杆本来互相穿透 7.9mm,排除掉;MuJoCo 主点偏移横纵都和图像反号(填错时桌面高 1cm);一开始只有 0.4 倍实时,三个原因(ROS 消息塞 bytes 24ms/张、numpy 和 MuJoCo 枚举比较 100ms/帧、渲染器切模式),改完每仿真 1 秒只用 0.2 秒,话题频率和真机一样(100Hz / 15Hz)。
+
+**端到端(DeepSeek + 仿真)“拿起鼠标”**:
+
+- 鼠标长边(10cm)朝前:**没抓起来**。夹爪张开时指缝 8.4cm,张开方向朝前,两指压在鼠标顶上;而且 **omnipicker 指尖比 URDF 的 TCP(link7 前 0.218m)长 1.9cm**(张开 0.237、闭合 0.249),touch 在指尖碰到鼠标顶时就停、再退 2cm,夹爪在空中闭合。大模型两次都如实说没抓起来。`traces/20261119_005016.jsonl`
+- 鼠标转 90°(短边朝前):**抓起来了**。指头从两侧下去,指尖碰到桌面(12.5N)停、退 2cm、闭合、抬 10cm,find_objects 确认鼠标 z 0.725 → 0.824。`traces/20261119_005355.jsonl`
+
+这两个问题真机上很可能也有(模型是官方的),待用户决定怎么改:TCP 要不要按 omnipicker 指尖改;抓之前要不要按物体朝向转手腕。
+
+```bash
+# 安装(一次)
+mkdir -p ~/mujoco_sim && cd ~/mujoco_sim
+uv venv --python /usr/bin/python3.10 --system-site-packages .venv
+uv pip install --python .venv/bin/python "mujoco==3.17.0" "numpy<2"
+
+# 检查场景(不用 ROS):深度反投影高度、存三张图到 sim/out/
+cd ~/robot_harness && MUJOCO_GL=egl ~/mujoco_sim/.venv/bin/python sim/check_scene.py
+
+# 终端 1:仿真 + ros2_control + MoveIt + octomap(+ RViz)
+source ~/robot_harness/sim/sim_env.sh
+ros2 launch ~/robot_harness/sim/launch/sim.launch.py
+ros2 launch ~/robot_harness/sim/launch/sim.launch.py use_rviz:=false scene:=/path/to/scene.yaml
+
+# 终端 2:harness(不用开 SAM 3)
+source ~/robot_harness/sim/sim_env.sh
+cd ~/robot_harness && python3 scripts/run_task.py --sim
+python3 scripts/run_task.py --sim "拿起鼠标"
+
+# 物体放回原位(机器人不动)
+ros2 service call /sim/reset_objects std_srvs/srv/Trigger
+
+python3 -m pytest tests/test_ground_truth.py -q
+```
+
 # 2026.11.18
 
 ## 多种大模型:--llm 名字
@@ -9,7 +118,7 @@
 用户加了 `--gpt`,问架构是否支持多种 API。结论:`loop.py` 只认 `chat(messages, tools)` 返回的字典、`Session.history` 只存文字,本来就不挑模型;问题在于每加一种都要改 yaml 顶层键 + 开关 + if 分支(`run_scenarios.py` 还写死 DeepSeek),trace 也没记是哪个模型跑的。改成:
 
 1. [configs/harness.yaml](configs/harness.yaml) 的 `llms` 段:每个模型一段,起名字;`default_llm: deepseek`。DeepSeek 的 `thinking` 改放在 `extra_body` 里。加一种模型(OpenAI 兼容的,包括本地 vLLM / Ollama)只要加一段。
-2. [harness/llm.py](harness/llm.py):只留一个 `ChatCompletionsLLM`,加 [make_llm](harness/llm.py#L70)(按名字建),`DeepSeekLLM` / `OpenAILLM` 删掉。格式完全不同的接口以后写新类、在 `LLM_TYPES` 登记。
+2. [harness/llm.py](harness/llm.py):只留一个 `ChatCompletionsLLM`,加 [make_llm](harness/llm.py#L154)(按名字建),`DeepSeekLLM` / `OpenAILLM` 删掉。格式完全不同的接口以后写新类、在 `LLM_TYPES` 登记。
 3. trace 第一行 `{"kind": "llm", ...}` 记模型;场景结果目录名带模型名。
 4. 测试 [tests/test_llm.py](tests/test_llm.py)(6 个,不联网)。全部 166 个测试 165 过,失败的还是那个已知的 workspace 配置测试。
 5. 文档:[harness_guide.md 第 6 章](docs/harness_guide.md#6-模型接口llmpy) 重写,harness/README、两个 README 各改一两行,run.txt 的 `--gpt` 改成 `--llm gpt`。
@@ -21,7 +130,33 @@ python3 scripts/run_scenarios.py --llm gpt              # 场景测试,用 GPT
 python3 -m pytest tests/test_llm.py -q
 ```
 
-**GPT 场景测试**(gpt-4.1-mini,新 SYSTEM + 经验,每个 3 遍):必须项全过 **9/18**(DeepSeek 11-16 是 18/18)。只问不动、合影全过;拿起 0/3;递东西、击掌经常说“完成了”其实没做到。最关键:**18 遍一次都没调 `read_experience`**,所以拿起时不张开、不下探。对话在 `traces/scenarios/20261118_181256_new_gpt/`。
+**GPT 场景测试**(gpt-4.1-mini,现在叫 `gpt_mini`,新 SYSTEM + 经验,每个 3 遍):必须项全过 **9/18**(DeepSeek 11-16 是 18/18)。只问不动、合影全过;拿起 0/3;递东西、击掌经常说“完成了”其实没做到。最关键:**18 遍一次都没调 `read_experience`**,所以拿起时不张开、不下探。对话在 `traces/scenarios/20261118_181256_new_gpt/`。
+
+## 换成 gpt-6.2-astra:要走 Responses 接口
+
+用户要换 GPT-6.2 Astra(模型 ID `gpt-6.2-astra`,用 `/v1/models` 查到的)。在 chat/completions 上:带工具就要求 `reasoning_effort: none`,而这个模型又不接受 `none`(两次 400)→ 只能走 `/v1/responses`,格式不同。
+
+1. [ResponsesLLM](harness/llm.py#L76):`ChatCompletionsLLM` 的子类,发出去前把对话 / 工具说明翻译成 Responses 格式,收回来再翻译回 `tool_calls`;加密的推理条目存在 `responses_output`,下一轮原样传回;`store: false`。`loop.py` 一行没改。yaml 里 `gpt` 段写 `type: responses`、`reasoning: {effort: low}`;原来的 gpt-4.1-mini 改名 `gpt_mini` 留着对比。
+2. [llm.py 的 post](harness/llm.py#L49):网络层出错(场景测试中途遇到一次 SSL 握手被掐,整个程序崩了)重试一次,还不行转成 RuntimeError。真机交互时网络抖一下也不会直接退出。
+3. 测试加到 11 个(格式翻译、重试),全部 171 个测试 170 过(失败的还是 workspace 那个)。
+4. **假机器人补上 `contact`**:[FakeBackend.execute](harness/backends/fake.py) 在 `touch_object(gap 0)` 后返回和真机一样的 `contact: {felt: true, ...}`。之前没有这个字段,Astra 照经验“没感到接触就别闭合”每次都停在闭合前(第一次跑 9/18,三个拿东西的场景全停在这里);DeepSeek 不管这个,直接闭合。
+
+**场景测试**(改过的假机器人,每个 3 遍):
+
+| 模型 | must 全过 | 说明 |
+|---|---|---|
+| deepseek-flash | 18/18 | `traces/scenarios/20261118_183439_new_deepseek/` |
+| gpt-6.2-astra(推理 low) | 15/18 | 每次都读相关经验;只有“分两条指令先拿后递”0/3:放到手上方后,假机器人报夹爪朝上(离朝下 180°),它为了不让鼠标掉而不松开,如实说了。`traces/scenarios/20261118_183439_new_gpt/` + `20261118_184208_new_gpt/`(合影、拿起中途断网后补跑) |
+| gpt-4.1-mini | 9/18 | 从不读经验(上面那次,假机器人还没补 contact) |
+
+剩下的问题在假机器人:**它不模拟夹爪朝向**,`approach_object(tool_axis="down")` 之后还是报朝上。DeepSeek 无视这个数据照样松开,Astra 当真。没改(`FakeBackend` 很多测试在用),待用户决定。
+
+```bash
+python3 scripts/run_task.py --llm gpt "拿起手机"            # 假机器人,gpt-6.2-astra
+python3 scripts/run_scenarios.py --llm gpt                  # 场景测试
+python3 scripts/run_scenarios.py photo pick --llm gpt       # 只跑名字里带 photo / pick 的
+python3 scripts/run_scenarios.py --llm gpt_mini             # 对比:gpt-4.1-mini
+```
 
 # 2026.11.17
 

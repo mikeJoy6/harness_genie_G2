@@ -6,6 +6,8 @@
   · 夹爪:GdkGripper(GDK 伺服话题)
 
 运行前要 source ~/agi@g2_robot/env_g2.sh(GDK 的 DDS 配置),并且 hardware.launch.py 已经在跑。
+仿真(run_task.py --sim):source sim/sim_env.sh,sim/launch/sim.launch.py 在跑;话题和真机一样,
+  只有 find_objects 用仿真的真值分割代替 SAM 3(vision.segmenter: ground_truth),夹爪不连 GDK(motion.gripper.sim_models)。
 """
 import math
 import threading
@@ -21,8 +23,10 @@ from ..geometry import matrix_to_rpy_deg, rpy_deg_to_matrix
 from ..motion.arm_motion import CART_SPEED, ArmMotion
 from ..motion.goal_pose import ComfortPose, body_assist_search, free_goal, roll_locked, tilt_search
 from ..motion.joint_detour import JointDetour
+from ..motion.kin import end_effector
 from ..motion.whole_body import WholeBody
 from ..perception.calib import CALIB
+from ..perception.ground_truth import GroundTruthSegmenter
 from ..perception.head_aim import HEAD_JOINTS, HeadAim
 from ..perception.rgbd_source import RosSource
 from ..perception.sam3_client import Sam3Client
@@ -75,7 +79,7 @@ def slow_down(plan, speed):
 
 class RosBackend:
     def __init__(self, vision_cfg, speed_m_s, debug_dir="traces", poses=None, gripper_cfg=None, touch_cfg=None,
-                 tool_axis_tolerance_deg=15.0, body_assist_cfg=None):
+                 tool_axis_tolerance_deg=15.0, body_assist_cfg=None, ee_cfg=None):
         self.vision = vision_cfg
         self.speed = speed_m_s
         self.debug_dir = Path(debug_dir)
@@ -87,11 +91,19 @@ class RosBackend:
         self.touch = touch_cfg               # touch_object 的链路参数(harness.yaml motion.touch)
         self.tool_axis_tolerance_deg = tool_axis_tolerance_deg   # tool_axis 严格做不到时,差这么多度以内也接受
         self.body_assist = body_assist_cfg   # 手臂够不着时先动腰(前倾 / 转腰),None = 不用
+        self.ee_cfg = ee_cfg or {}           # configs/end_effectors.yaml:每种末端的驱动、碰撞胶囊、可达距离
+        self._suctions = {}                  # 手 → suction_control 的吸盘对象(第一次用时建)
         sam3 = vision_cfg["sam3"]
         self.sam3 = Sam3Client(sam3["url"], timeout_s=sam3["timeout_s"])
 
         rclpy.init()
         self.node = rclpy.create_node("robot_harness")
+        self.ground_truth = None             # 仿真:真值分割代替 SAM 3(harness.yaml / sim.yaml 的 vision.segmenter)
+        self.seg_topic = None
+        if vision_cfg.get("segmenter", "sam3") == "ground_truth":
+            gt = vision_cfg["ground_truth"]
+            self.ground_truth = GroundTruthSegmenter(self.node, gt["objects_topic"])
+            self.seg_topic = gt["seg_topic"]
         self.arm = ArmMotion("robot_harness_arm")
         self.body = WholeBody(self.node)        # 订阅 /joint_states,连 4 个 JTC 和 /check_state_validity
         self.camera = SensorNode("robot_harness_camera")
@@ -129,17 +141,23 @@ class RosBackend:
             raise RuntimeError("10s 没收到 /robot_description 或 /joint_states,hardware.launch.py 在跑吗?")
         if not self.arm._sv.wait_for_service(timeout_sec=5.0):   # 否则 ArmMotion 会跳过自碰撞检查
             raise RuntimeError("/check_state_validity 不可用,move_group 在跑吗?")
+        # 仿真:夹爪型号按 URDF 里装的末端报(sim.yaml 的 motion.gripper.sim_models: from_urdf)
+        if self.gripper is not None and self.gripper.sim_models == "from_urdf":
+            models = {}
+            for arm in ("left", "right"):
+                models[arm] = "omnipicker" if end_effector(self.arm.urdf, arm) == "omnipicker" else ""
+            self.gripper.sim_models = models
 
     # ---------------- SAM 3:按名字找物体 ----------------
     def _grab_frame(self, timeout_s):
-        """取一帧同步的 (彩色 BGR, 深度 mm, base_link→head_link3);超时返回 None。"""
-        source = RosSource(sensor=self.camera)
+        """取一帧同步的 (彩色 BGR, 深度 mm, base_link→head_link3, 真值分割图 / None);超时返回 None。"""
+        source = RosSource(sensor=self.camera, seg_topic=self.seg_topic)
         deadline = time.monotonic() + timeout_s
         try:
             while time.monotonic() < deadline:
                 frame = source.next(None)
                 if frame is not None:
-                    return frame[:3]
+                    return frame[0], frame[1], frame[2], source.last_seg
                 time.sleep(0.01)
         finally:
             source.close()
@@ -152,10 +170,13 @@ class RosBackend:
         frame = self._grab_frame(self.vision["timeout_s"])
         if frame is None:
             return {"ok": False, "error": "没有收到头部相机画面(/gdk/camera/head_color、head_depth、/gdk/tf)"}
-        bgr, depth_mm, T_base_head = frame
+        bgr, depth_mm, T_base_head, seg = frame
         t0 = time.monotonic()
         try:
-            results = self.sam3.segment(bgr, [query], cfg["threshold"])
+            if self.ground_truth is not None:            # 仿真:完美掩码
+                results = self.ground_truth.segment(seg, [query])
+            else:
+                results = self.sam3.segment(bgr, [query], cfg["threshold"])
         except RuntimeError as e:
             return {"ok": False, "error": str(e)}
         segment_ms = round((time.monotonic() - t0) * 1000)
@@ -165,7 +186,8 @@ class RosBackend:
         principal = (CALIB["depth"]["cx"], CALIB["depth"]["cy"])
         objects, rejected = objects_from_masks(results, depth_m, points, cam_xyz, principal,
                                                cfg["min_valid_depth_pixels"])
-        meta = {"threshold": cfg["threshold"], "segment_ms": segment_ms, "sam3_timing_ms": self.sam3.last_timing_ms,
+        meta = {"segmenter": "ground_truth" if self.ground_truth is not None else "sam3",
+                "threshold": cfg["threshold"], "segment_ms": segment_ms, "sam3_timing_ms": self.sam3.last_timing_ms,
                 "camera_xyz_m": [round(float(v), 4) for v in cam_xyz],
                 "base_link_T_head_link3": np.round(T_base_head, 6).tolist(),
                 "head_joints_deg": {j: round(float(np.degrees(self.body.snapshot()[j])), 2) for j in HEAD_JOINTS},
@@ -233,6 +255,35 @@ class RosBackend:
         if self.gripper is None:
             return {"ok": False, "arm": arm, "error": "没有配置夹爪(harness.yaml 的 motion.gripper)"}
         return self.gripper.command(arm, action)
+
+    def end_effectors(self):
+        """{arm: "omnipicker" / "suction" / "none"}:按 URDF 认(启动时 left_ee / right_ee 选的)。"""
+        return {arm: end_effector(self.arm.urdf, arm) for arm in ("left", "right")}
+
+    def suction_command(self, arm, action):
+        """吸盘 on / off:configs/end_effectors.yaml 的 suction.types 选 suction_control 的类型名(真机 evs08_left,
+        仿真 sim_left / sim_right)。on 之后等实测吸住(attached),off 之后等确认释放(released)。"""
+        types = (self.ee_cfg.get("suction") or {}).get("types") or {}
+        type_name = types.get(arm)
+        if not type_name:
+            return {"ok": False, "arm": arm, "error": f"{arm} 手没有可用的吸盘驱动(configs/end_effectors.yaml 的 suction.types)"}
+        try:
+            if arm not in self._suctions:
+                from suction_control import make
+                self._suctions[arm] = make(type_name)
+            suction = self._suctions[arm]
+            if action == "on":
+                suction.on()
+                attached, st = suction.wait("attached", 2.0)
+                msg = "吸住了" if attached else "在吸,但 2s 内没吸住(吸盘端面没贴到物体表面?)"
+                return {"ok": True, "arm": arm, "action": action, "attached": attached, "msg": msg,
+                        "status": suction.summary(st)}
+            suction.off()
+            released, st = suction.wait("released", 2.0)
+            return {"ok": True, "arm": arm, "action": action, "released": released,
+                    "msg": "已放开" if released else "停吸命令发了,2s 内没确认释放", "status": suction.summary(st)}
+        except Exception as e:
+            return {"ok": False, "arm": arm, "error": f"吸盘({type_name}):{e}"}
 
     # ---------------- 读 ----------------
     def end_pose(self, arm):
@@ -586,7 +637,10 @@ class RosBackend:
         2026-11-14 真机:连这段也查,桌面(背面补全成好几层厚)把最后一段全拦了,只好去绕 154° 的关节空间。"""
         if len(blocked) == 0:
             return True
-        cfg = self.touch["keep_out"]
+        cfg = dict(self.touch["keep_out"])
+        if self.ee_cfg:                                  # 胶囊尺寸按这只手装的末端(configs/end_effectors.yaml)
+            ee = self.ee_cfg.get(end_effector(self.arm.urdf, arm)) or {}
+            cfg.update(ee.get("keep_out") or {})
         pb, Rb = self.arm._root_in_base()
         kin = self.arm.solvers[arm].kin
         P = np.asarray(path, dtype=float)
@@ -913,20 +967,33 @@ class RosBackend:
         time.sleep(force_cfg["settle_s"])
         felt = {"felt": True, "force_change_n": round(change, 1), "moved_m": round(moved, 3),
                 "force_n": [round(float(v), 1) for v in hit[:3]]}
+        retreat = self._touch_retreat(arm)
+        felt["retreat_m"] = retreat
+        if retreat <= 0:                                 # 吸盘:贴着不退(退了就吸不住)
+            return {"ok": True, "msg": f"{first_msg};最后一段走了 {moved * 100:.1f}cm 碰到东西(力变化 {change:.1f}N),"
+                                      f"已停,贴着不退", "contact": felt}
         now, R_now = self.arm.pose(arm)
-        back = self.arm.plan_cartesian(arm, now - force_cfg["retreat_m"] * d, R_now, ignore_cloud=True)
+        back = self.arm.plan_cartesian(arm, now - retreat * d, R_now, ignore_cloud=True)
         if isinstance(back, str):
             return {"ok": False, "msg": f"走了 {moved * 100:.1f}cm 碰到东西(力变化 {change:.1f}N)已停,"
-                                        f"但往回退 {force_cfg['retreat_m'] * 100:.0f}cm 算不出来:{back}",
+                                        f"但往回退 {retreat * 100:.0f}cm 算不出来:{back}",
                     "contact": felt}
         slow_down(back, self.touch["final_speed_m_s"])
         ok, msg = self.arm.execute(back)
         if not ok:
             return {"ok": False, "msg": f"碰到东西已停,往回退失败:{msg}", "contact": felt}
-        felt["retreat_m"] = force_cfg["retreat_m"]
         return {"ok": True, "msg": f"{first_msg};最后一段走了 {moved * 100:.1f}cm 碰到东西(力变化 {change:.1f}N),"
-                                  f"已停并往回退 {force_cfg['retreat_m'] * 100:.0f}cm",
+                                  f"已停并往回退 {retreat * 100:.0f}cm",
                 "contact": felt}
+
+    def _touch_retreat(self, arm):
+        """touch 碰到后往回退多少米:按这只手的末端查 configs/end_effectors.yaml 的 touch_retreat_m
+        (夹爪退 2cm 给闭合留空间,吸盘 0 贴着),查不到用 motion.touch.force.retreat_m。"""
+        default = self.touch["force"]["retreat_m"]
+        if not self.ee_cfg:
+            return default
+        ee = self.ee_cfg.get(end_effector(self.arm.urdf, arm)) or {}
+        return float(ee.get("touch_retreat_m", default))
 
     def close(self):
         self.arm.cancel()

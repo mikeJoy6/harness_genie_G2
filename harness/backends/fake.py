@@ -17,7 +17,7 @@ FAKE_CAMERA_TILT_DEG = 25.0
 
 class FakeBackend:
     def __init__(self, end=(0.59, 0.42, 0.77), plan_error=None, joints=None, limit_rad=3.0, sam_objects=None,
-                 sam_error=None, grippers=None):
+                 sam_error=None, grippers=None, end_effectors=None):
         # SAM 3 假结果:{英文短语: [物体坐标, ...]};sam_error 模拟服务没开
         self.sam_objects = sam_objects if sam_objects is not None else {
             "phone": [(0.75, -0.10, 0.80), (0.60, 0.30, 0.78)]}
@@ -27,6 +27,9 @@ class FakeBackend:
         self.grippers = grippers if grippers is not None else {"left": "omnipicker", "right": "omnipicker"}
         self.gripper_open = {"left": False, "right": False}
         self.gripper_calls = []         # 每次开合的 (手, 动作)
+        # 末端:{手: "omnipicker" / "suction" / "none"};不给就按 grippers 推(有型号 = omnipicker)
+        self._end_effectors = end_effectors
+        self.suction_calls = []         # 每次吸盘的 (手, 动作)
         self.ends = {"left": {"xyz_m": list(end), "rpy_deg": [0.0, 0.0, 0.0]},
                      "right": {"xyz_m": [end[0], -end[1], end[2]], "rpy_deg": [0.0, 0.0, 0.0]}}
         self.plan_error = plan_error
@@ -77,6 +80,19 @@ class FakeBackend:
     def gripper_state(self, arm):
         return {"ok": True, "arm": arm, "model": self.grippers.get(arm, ""), "error_code": 0,
                 "position": None, "opened": self.gripper_open[arm]}
+
+    def end_effectors(self):
+        """和 RosBackend.end_effectors 一样:{arm: 末端类型}。"""
+        if self._end_effectors is not None:
+            return dict(self._end_effectors)
+        return {arm: ("omnipicker" if self.grippers.get(arm) else "none") for arm in ("left", "right")}
+
+    def suction_command(self, arm, action):
+        """假吸盘:on / off。不知道吸没吸住(attached None);scenarios/fake_world.py 会模拟吸住附近的东西。"""
+        self.suction_calls.append((arm, action))
+        if self.end_effectors().get(arm) != "suction":
+            return {"ok": False, "arm": arm, "error": f"{arm} 没装吸盘"}
+        return {"ok": True, "arm": arm, "action": action, "attached": None, "msg": "假吸盘:命令已发送"}
 
     def gripper_command(self, arm, action):
         self.gripper_calls.append((arm, action))

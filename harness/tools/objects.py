@@ -9,8 +9,10 @@ def _tool(name, description, properties=None, required=()):
         "parameters": {"type": "object", "properties": properties or {}, "required": list(required)}}}
 
 
-def make_tools(pose_names=(), pose_notes=None):
-    return _object_tools() + make_motion_tools(pose_names, pose_notes)
+def make_tools(pose_names=(), pose_notes=None, end_effectors=None):
+    """全部工具。end_effectors:{arm: "omnipicker" / "suction" / "none"}(backend.end_effectors()),
+    决定给不给 gripper / suction;不给就按以前:gripper 两只手都列。"""
+    return _object_tools() + make_motion_tools(pose_names, pose_notes, end_effectors)
 
 
 def _object_tools():
@@ -46,7 +48,8 @@ def _object_tools():
               "夹爪自动朝向物体,夹爪尖停在物体表面前 gap_cm 处,不用你算偏移;"
               "程序先避障到物体前几厘米,最后一小段慢速直线贴过去(这段只放过物体附近的点云,桌面照样避开)。"
               "最后一段边走边看手腕六维力:gap_cm=0 时一直往前直到感到接触(比如张开的夹爪罩住物体碰到桌面),"
-              "然后自动往回退 2 厘米给闭合夹爪留空间;结果里 contact.felt 表示有没有感到接触。会让机器人运动。",
+              "然后夹爪自动往回退 2 厘米给闭合留空间,吸盘不退(贴着才吸得住);结果里 contact.felt 表示有没有感到接触、"
+              "contact.retreat_m 是实际退了多少。会让机器人运动。",
               {"object_id": {"type": "string", "description": "find_objects 返回的编号,例如 hand_1"},
                "arm": {"type": "string", "enum": ["left", "right"], "description": "用哪只手,先看 reachable_by"},
                "gap_cm": {"type": "number", "description": "夹爪尖离物体表面留多少厘米,可填 0~10。"

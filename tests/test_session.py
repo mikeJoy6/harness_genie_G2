@@ -54,7 +54,7 @@ def test_second_command_sees_first_and_holding(tmp_path, monkeypatch):
         call("get_robot_state", {}),
         answer("手里是鼠标"),
     ])
-    args = argparse.Namespace(real=False, confirm=False, plan_only=False)
+    args = argparse.Namespace(real=False, sim=False, confirm=False, plan_only=False)
     session = run_task.Session(llm, world, CFG, args)
     session.run("拿起鼠标")
     session.run("你手里拿着什么")

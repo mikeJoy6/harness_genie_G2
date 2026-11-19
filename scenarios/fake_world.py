@@ -37,6 +37,21 @@ class FakeWorld(FakeBackend):
         result = super().gripper_command(arm, action)
         if not result.get("ok"):
             return result
+        self._grab_or_release(arm, action)
+        return result
+
+    def suction_command(self, arm, action):
+        """吸盘:开 = 吸住末端附近的东西(和夹爪闭合一样),关 = 放下。"""
+        result = super().suction_command(arm, action)
+        if not result.get("ok"):
+            return result
+        self._grab_or_release(arm, "close" if action == "on" else "open")
+        if action == "on":
+            result["attached"] = self.held[arm] is not None
+        return result
+
+    def _grab_or_release(self, arm, action):
+        """close:末端 3cm 内的东西被拿起来、跟着末端走;open:落下(下面有东西就落在它上面)。"""
         tip = self._tip(arm)
         if action == "close" and self.held[arm] is None:
             best = None
@@ -59,4 +74,3 @@ class FakeWorld(FakeBackend):
                         landing = [p[0], p[1], p[2] + 0.02]
             self.sam_objects[phrase][index] = landing
             self.held[arm] = None
-        return result

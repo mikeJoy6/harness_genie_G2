@@ -5,6 +5,7 @@
     python3 -m pytest tests/test_tcp_and_escape.py -q
 """
 import os
+import sys
 
 import numpy as np
 import pytest
@@ -15,16 +16,19 @@ pytest.importorskip("rclpy")
 from harness.motion.arm_motion import ESCAPE_M, ArmMotion  # noqa: E402
 from harness.motion.kin import ChainKin, arm_kin  # noqa: E402
 
-EE_URDF = os.path.expanduser("~/agi@g2_robot/src/genie_robot_description/urdf/G2_t2_crsB/G2_t2_crsB_ee.urdf")
-PLAIN_URDF = os.path.expanduser("~/agi@g2_robot/src/genie_robot_description/urdf/G2_t2_crsB/G2_t2_crsB.urdf")
+sys.path.insert(0, os.path.dirname(__file__))
+from g2_urdf import g2_urdf  # noqa: E402
 
 
 def test_tip_is_tcp_when_urdf_has_it():
-    if not (os.path.exists(EE_URDF) and os.path.exists(PLAIN_URDF)):
-        pytest.skip("没有 G2 URDF")
-    ee, plain = open(EE_URDF).read(), open(PLAIN_URDF).read()
+    ee, plain = g2_urdf("suction", "suction"), g2_urdf("none", "none")      # 吸盘(TCP 0.128)/ 没装末端
+    if ee is None:
+        pytest.skip("agi@g2_robot 没编译,展开不了 genie.urdf.xacro")
     assert arm_kin(ee, "right").tip == "tcp_r_link"
     assert arm_kin(plain, "right").tip == "arm_r_end_link"
+    omni = g2_urdf("none", "omnipicker")
+    assert arm_kin(omni, "right").tip == "tcp_r_link"              # omnipicker 也有 TCP(闭合指尖)
+    assert arm_kin(omni, "left").tip == "arm_l_end_link"           # 左手没装
     kin_tcp = arm_kin(ee, "right")
     kin_end = ChainKin(ee, "arm_base_link", "arm_r_end_link")
     q = np.array([0.3, -0.5, 0.2, -1.2, 0.3, 0.4, -0.2])

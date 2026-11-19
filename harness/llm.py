@@ -52,12 +52,16 @@ class ChatCompletionsLLM:
             headers["Authorization"] = f"Bearer {self.api_key}"
         request = urllib.request.Request(
             self.url, data=json.dumps(body, ensure_ascii=False).encode("utf-8"), method="POST", headers=headers)
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                data = json.load(response)
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"模型接口({self.name})返回 {e.code}:{e.read().decode('utf-8', 'replace')[:500]}") from e
-        return data
+        for attempt in (1, 2):                # 网络断一下(代理抖动、SSL 握手被掐)重试一次;接口返回的错误不重试
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
+                    return json.load(response)
+            except urllib.error.HTTPError as e:
+                raise RuntimeError(f"模型接口({self.name})返回 {e.code}:{e.read().decode('utf-8', 'replace')[:500]}") from e
+            except (urllib.error.URLError, OSError) as e:      # 连不上、SSL 中断、超时
+                if attempt == 2:
+                    raise RuntimeError(f"连不上模型接口({self.name},{self.url}):{e}") from e
+                print(f"  [llm] 网络出错,重试一次:{e}", flush=True)
 
     def parse_reply(self, data):
         message = data["choices"][0]["message"]

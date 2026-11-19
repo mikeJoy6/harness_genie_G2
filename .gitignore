@@ -63,3 +63,4 @@ experiments/*/out/
 # 大模型提议的经验(待人审核)和审核时留的旧版本
 experience/pending/
 experience/*.md.bak
+sim/out/

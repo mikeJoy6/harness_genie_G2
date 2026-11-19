@@ -18,16 +18,33 @@ xml_reflection.core.on_error = lambda *_args, **_kw: None
 
 ARM_ROOT = "arm_base_link"
 ARM_TIP = {"left": "arm_l_end_link", "right": "arm_r_end_link"}
-# robot_harness 加:URDF 里有 TCP(hardware.launch end_effector:=true 加载的 G2_t2_crsB_ee.urdf:end_link 沿 z 平移 0.128,
-#   即夹爪 / 末端长方体的端面中心)就把手臂链的末端设到 TCP。这样所有目标点、末端位姿、高度限制都是“夹爪尖在哪”。
+# 末端(2026-11-19 起由 hardware.launch / sim.launch 的 left_ee / right_ee 选,定义在
+#   agi@g2_robot/src/genie_robot_description/urdf/end_effectors/):
+#   omnipicker  tcp_*_link = 闭合指尖(omnipicker.xacro 里的 omnipicker_tcp_z)
+#   suction     tcp_*_link = 吸盘端面(法兰沿 z 0.128)
+#   none        没有末端,也没有 TCP,手臂链末端就是法兰 arm_*_end_link
+# 手臂链的末端设到 TCP,所有目标点、末端位姿、高度限制都是“末端尖在哪”。TCP 只在 URDF 里定义,这里不加任何偏移。
 TCP_TIP = {"left": "tcp_l_link", "right": "tcp_r_link"}
+SIDE = {"left": "l", "right": "r"}
+
+
+def end_effector(urdf_str, arm):
+    """这只手装的是什么:"omnipicker" / "suction" / "none"(按 URDF 里有没有对应的 link 认)。"""
+    side = SIDE[arm]
+    if f'link name="gripper_{side}_inner_link1"' in urdf_str:
+        return "omnipicker"
+    if f'link name="suction_{side}_link"' in urdf_str:
+        return "suction"
+    return "none"
 
 
 def arm_tip(urdf_str, arm):
-    """这份 URDF 里手臂链的末端:有 TCP 用 TCP,没有用法兰 arm_*_end_link。"""
-    if f'link name="{TCP_TIP[arm]}"' in urdf_str:
-        return TCP_TIP[arm]
-    return ARM_TIP[arm]
+    """手臂链的末端:装了末端用 TCP;none(没装)用法兰 arm_*_end_link。"""
+    if end_effector(urdf_str, arm) == "none":
+        return ARM_TIP[arm]
+    if f'link name="{TCP_TIP[arm]}"' not in urdf_str:
+        raise RuntimeError(f"URDF 里 {arm} 手装了 {end_effector(urdf_str, arm)},却没有 {TCP_TIP[arm]}(末端 xacro 漏了 TCP?)")
+    return TCP_TIP[arm]
 BASE = "base_link"
 
 

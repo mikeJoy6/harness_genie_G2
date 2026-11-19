@@ -10,6 +10,9 @@
 结果里 verified=False 会如实写出来。
 
 运行前要 source ~/.cache/agibot/app/env.sh(agibot_gdk 要它设置库路径)。
+仿真(configs/sim.yaml 里 motion.gripper.sim_models):不连 GDK(否则会去连真机),型号按配置报、错误码 0。
+  sim_models 可以直接写 {right: omnipicker, left: ""},或写 from_urdf:RosBackend 按 URDF 里装的末端填;
+  开合照样发 /gdk/joint_control 伺服话题,仿真收了去动夹爪。
 """
 import os
 import threading
@@ -41,6 +44,7 @@ class GdkGripper:
         # get_end_state:这台 G2 的 HAL 根本不发夹爪状态(/gdk/joint_state 22 个关节、/joint_states 30 个,都没有夹爪),
         # 读一次就阻塞约 2s 并往终端打一行 "E ... No end state message found"。所以默认不读(read_position: false)。
         self._has_end_state = bool(cfg.get("read_position", False))
+        self.sim_models = cfg.get("sim_models")      # None = 真机(连 GDK);字典 = 仿真;"from_urdf" = 等 RosBackend 填
 
     # ---------------- 连接 GDK ----------------
     def _connect(self):
@@ -75,6 +79,11 @@ class GdkGripper:
     # ---------------- 读 ----------------
     def state(self, arm):
         """{"ok", "arm", "model", "error_code", "position"(读不到为 None)}"""
+        sim_models = self.sim_models
+        if sim_models is not None:                       # 仿真:不连 GDK
+            if not isinstance(sim_models, dict):
+                return {"ok": False, "arm": arm, "error": "仿真的夹爪型号还没从 URDF 读出来"}
+            return {"ok": True, "arm": arm, "model": sim_models.get(arm, ""), "error_code": 0, "position": None}
         with self.lock:
             error = self._connect()
             if error:

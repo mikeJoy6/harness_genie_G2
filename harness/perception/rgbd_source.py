@@ -4,6 +4,8 @@
 真机：/gdk/camera/head_color + /gdk/camera/head_depth 按 header.stamp 精确配对（硬件同步，stamp 相同），
       头部位姿取 /gdk/tf 最新的 base_link → head_link3。
 RosSource(sensor=SensorNode)：用处理器常驻的传感器节点（common/sensor_node.py），close() 停它的 executor 再撤订阅。
+RosSource(..., seg_topic=...)：仿真用，再配上同一时间戳的真值分割图（sim/ros_bridge.py 发的 /sim/camera/head_seg），
+      三张都到了才算一帧，分割图放在 last_seg（见 harness/perception/ground_truth.py）。
 数据集：frames.jsonl 里每帧记下的头部位姿；a/d 翻页。
 """
 import json
@@ -18,7 +20,7 @@ from .scene3d import pose_mat
 
 
 class RosSource:
-    def __init__(self, node_name=None, sensor=None):
+    def __init__(self, node_name=None, sensor=None, seg_topic=None):
         import rclpy
         from rclpy.executors import SingleThreadedExecutor
         from rclpy.qos import qos_profile_sensor_data
@@ -29,6 +31,10 @@ class RosSource:
         self.sensor = sensor
         self.lock = threading.Lock()
         self.colors = OrderedDict()
+        self.seg_topic = seg_topic
+        self.segs = OrderedDict()            # 时间戳 → 分割图(比彩色+深度先到的)
+        self.waiting = OrderedDict()         # 时间戳 → (彩色, 深度)(等分割图的)
+        self.last_seg = None                 # next() 返回的那一帧的分割图;没开 seg_topic 时一直是 None
         self.pair, self.n, self.T = None, 0, None
         self.last_n = 0
         self.t_wait = time.monotonic()
@@ -36,6 +42,8 @@ class RosSource:
         specs = [(CompressedImage, "/gdk/camera/head_color", self._on_color, q),
                  (Image, "/gdk/camera/head_depth", self._on_depth, q),
                  (TFMessage, "/gdk/tf", self._on_tf, q)]
+        if seg_topic:
+            specs.append((Image, seg_topic, self._on_seg, q))
         if sensor is not None:
             sensor.open(specs)
             self.node = sensor.node
@@ -63,10 +71,35 @@ class RosSource:
         if m.encoding != "16UC1":
             return
         d = np.frombuffer(m.data, np.uint16).reshape(m.height, m.step // 2)[:, :m.width].copy()
+        stamp = self._stamp(m)
         with self.lock:
-            c = self.colors.pop(self._stamp(m), None)
-            if c is not None:
+            c = self.colors.pop(stamp, None)
+            if c is None:
+                return
+            if not self.seg_topic:
                 self.pair, self.n = (c, d), self.n + 1
+                return
+            seg = self.segs.pop(stamp, None)
+            if seg is None:
+                self.waiting[stamp] = (c, d)
+                while len(self.waiting) > 10:
+                    self.waiting.popitem(last=False)
+            else:
+                self.pair, self.n = (c, d, seg), self.n + 1
+
+    def _on_seg(self, m):
+        if m.encoding != "16UC1":
+            return
+        seg = np.frombuffer(m.data, np.uint16).reshape(m.height, m.step // 2)[:, :m.width].copy()
+        stamp = self._stamp(m)
+        with self.lock:
+            got = self.waiting.pop(stamp, None)
+            if got is None:
+                self.segs[stamp] = seg
+                while len(self.segs) > 10:
+                    self.segs.popitem(last=False)
+            else:
+                self.pair, self.n = (got[0], got[1], seg), self.n + 1
 
     def _on_tf(self, m):
         for t in m.transforms:
@@ -89,6 +122,7 @@ class RosSource:
         if n == self.last_n:
             return None
         self.last_n = n
+        self.last_seg = pair[2] if len(pair) > 2 else None
         return cv2.imdecode(np.frombuffer(pair[0], np.uint8), cv2.IMREAD_COLOR), pair[1], T, "live"
 
     def close(self):

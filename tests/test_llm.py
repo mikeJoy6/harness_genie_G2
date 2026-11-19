@@ -130,3 +130,21 @@ def test_responses_empty_reply_raises(monkeypatch):
     with pytest.raises(RuntimeError):
         llm.parse_reply({"status": "incomplete", "output": [{"type": "reasoning", "id": "rs_1"}],
                          "incomplete_details": {"reason": "max_output_tokens"}})
+
+
+def test_network_error_retries_once_then_runtime_error(monkeypatch):
+    """网络层出错(SSL 中断等)重试一次;还不行就报 RuntimeError(run_scenarios 会接住这一遍,不整个崩)。"""
+    import urllib.error
+    import urllib.request
+    monkeypatch.setenv("TEST_KEY_A", "sk-test")
+    llm = make_llm(CFG, "a")
+    tries = []
+
+    def broken(request, timeout):
+        tries.append(1)
+        raise urllib.error.URLError("SSL: UNEXPECTED_EOF_WHILE_READING")
+
+    monkeypatch.setattr(urllib.request, "urlopen", broken)
+    with pytest.raises(RuntimeError):
+        llm.chat([{"role": "user", "content": "hi"}], [])
+    assert len(tries) == 2

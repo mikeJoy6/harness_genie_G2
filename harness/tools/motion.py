@@ -22,9 +22,40 @@ def _xyz(description):
     return {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3, "description": description}
 
 
-def make_motion_tools(pose_names=(), pose_notes=None):
+def arms_with(end_effectors, kind):
+    """装了这种末端的手。end_effectors 为 None(没告诉)时:夹爪按两只手都列(以前的样子),吸盘一只都不列。"""
+    if end_effectors is None:
+        return ["left", "right"] if kind == "omnipicker" else []
+    return [arm for arm in ("left", "right") if end_effectors.get(arm) == kind]
+
+
+def end_effector_tools(end_effectors=None):
+    """按每只手装的末端给工具(configs/end_effectors.yaml 的 tool):夹爪 → gripper,吸盘 → suction,没装 → 不给。"""
+    tools = []
+    gripper_arms = arms_with(end_effectors, "omnipicker")
+    if gripper_arms:
+        tools.append(_tool(
+            "gripper",
+            "打开或闭合一只手的夹爪。会让机器人动作。张开时两指间最宽约 8.4 厘米,更宽的东西要从窄的方向夹。"
+            "失败时如实告诉用户。",
+            {"arm": {"type": "string", "enum": gripper_arms, "description": "哪只手,用户说右手就是 right"},
+             "action": {"type": "string", "enum": ["open", "close"], "description": "open 打开,close 闭合"}},
+            required=["arm", "action"]))
+    suction_arms = arms_with(end_effectors, "suction")
+    if suction_arms:
+        tools.append(_tool(
+            "suction",
+            "开 / 关一只手的吸盘。会让机器人动作。on:开吸,吸盘贴着物体表面才吸得住(先用 touch_object 让吸盘端面贴上去);"
+            "off:破真空放开,放之前先把东西放稳。返回里 attached 为 true 才是真吸住了。",
+            {"arm": {"type": "string", "enum": suction_arms, "description": "哪只手"},
+             "action": {"type": "string", "enum": ["on", "off"], "description": "on 吸,off 放"}},
+            required=["arm", "action"]))
+    return tools
+
+
+def make_motion_tools(pose_names=(), pose_notes=None, end_effectors=None):
     """pose_notes:{位姿名: 说明},来自 poses.yaml 的 note,写进 go_to_pose 的说明里,
-    模型才知道“初始位姿”对应哪个名字。"""
+    模型才知道“初始位姿”对应哪个名字。end_effectors:{arm: 末端类型},决定给 gripper / suction 工具。"""
     tools = [
         _tool("get_robot_state",
               "读取腰、头、双臂所有关节的当前角度(度,按关节 1、2、3... 的顺序),"
@@ -55,12 +86,7 @@ def make_motion_tools(pose_names=(), pose_notes=None):
                               "description": "每个关节转到多少度(绝对角度)"}},
               required=["group"]),
     ]
-    tools.append(_tool(
-        "gripper",
-        "打开或闭合一只手的夹爪。会让机器人动作。失败时(比如这只手没装夹爪)如实告诉用户。",
-        {"arm": {"type": "string", "enum": ["left", "right"], "description": "哪只手,用户说右手就是 right"},
-         "action": {"type": "string", "enum": ["open", "close"], "description": "open 打开,close 闭合"}},
-        required=["arm", "action"]))
+    tools.extend(end_effector_tools(end_effectors))
     tools.append(_tool(
         "wait",
         "等待几秒再做下一步,例如“打开夹爪,过 5 秒再闭合”中间的 5 秒。不会让机器人运动。",
