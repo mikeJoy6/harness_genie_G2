@@ -4,8 +4,10 @@
   python3 scripts/run_task.py --real --plan-only "..."             真机:只规划,不运动
   python3 scripts/run_task.py --real                               真机:交互模式,一行一条指令(运动自动执行)
   python3 scripts/run_task.py --real --confirm                     真机:每次运动前按 y
+  python3 scripts/run_task.py --real --llm gpt                     换模型(名字是 harness.yaml 里 llms 下的)
 """
 import argparse
+import json
 import os
 import sys
 import time
@@ -19,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 from harness.backends.fake import FakeBackend
 from harness.experience import ExperienceBook
 from harness.gateway import Gateway
-from harness.llm import DeepSeekLLM
+from harness.llm import make_llm
 from harness.loop import build_system, run_agent
 from harness.tools.experience import make_experience_tools
 from harness.tools.objects import make_tools
@@ -89,6 +91,7 @@ class Session:
         trace_path = ROOT / "traces" / f"{time.strftime('%Y%m%d_%H%M%S')}.jsonl"
         recent = self.history[-2 * HISTORY_COMMANDS:]
         with open(trace_path, "w", encoding="utf-8") as trace:
+            trace.write(json.dumps({"kind": "llm", "data": self.llm.describe()}, ensure_ascii=False) + "\n")
             answer = run_agent(task, self.llm, self.gateway, tools, max_steps=self.cfg["agent"]["max_steps"],
                                trace=trace, system=system, history=recent)
         self.history.append({"role": "user", "content": task})
@@ -100,13 +103,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("task", nargs="?", help="指令;不填则进入交互模式")
     parser.add_argument("--real", action="store_true", help="连接真机")
+    parser.add_argument("--llm", help="用哪个大模型:configs/harness.yaml 里 llms 下的名字,不填用 default_llm")
     parser.add_argument("--plan-only", action="store_true", help="只规划,绝不运动")
     parser.add_argument("--confirm", action="store_true", help="每次运动前等人按 y(默认自动执行)")
     args = parser.parse_args()
 
     load_env(ROOT / ".env")
     cfg = yaml.safe_load((ROOT / "configs/harness.yaml").read_text(encoding="utf-8"))
-    llm = DeepSeekLLM(**cfg["llm"])
+    llm = make_llm(cfg, args.llm)
+    print(f"[llm] {llm.name}({llm.model})", flush=True)
 
     if args.real:
         from harness.backends.ros import RosBackend    # 放这里,假机器人模式才不需要 ROS

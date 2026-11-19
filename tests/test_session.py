@@ -28,6 +28,9 @@ class ScriptedLLM:
         self.seen.append(list(messages))
         return self.replies.pop(0)
 
+    def describe(self):
+        return {"name": "scripted", "model": "scripted"}
+
 
 def call(name, arguments):
     return {"role": "assistant", "content": "", "tool_calls": [

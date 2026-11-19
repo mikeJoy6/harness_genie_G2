@@ -1,12 +1,13 @@
 """场景测试:用会动的假机器人(scenarios/fake_world.py)+ 真的大模型跑 scenarios/*.yaml,统计每条检查的通过率。
-机器人不会动,但会调用 DeepSeek(要 .env 里的 key,会花一点钱)。
+机器人不会动,但会调用真的大模型(要 .env 里的 key,会花一点钱)。
 
     python3 scripts/run_scenarios.py                               # 所有场景,新 SYSTEM + 经验,每个跑 3 遍
     python3 scripts/run_scenarios.py handover pick --runs 5        # 只跑名字里带 handover / pick 的
     python3 scripts/run_scenarios.py --variant baseline            # 对照组:旧 SYSTEM(scenarios/baseline_system.txt),没有经验
     python3 scripts/run_scenarios.py --variant no_experience       # 新 SYSTEM,但不给经验
+    python3 scripts/run_scenarios.py --llm gpt                     # 换模型(harness.yaml 里 llms 下的名字)
 
-每次运行的对话存到 traces/scenarios/<时间>_<变体>/<场景>_<第几遍>.jsonl。
+每次运行的对话存到 traces/scenarios/<时间>_<变体>_<模型名>/<场景>_<第几遍>.jsonl。
 
 场景文件格式(scenarios/*.yaml):
     name: handover
@@ -38,7 +39,7 @@ sys.path.insert(0, str(ROOT / "scenarios"))
 from fake_world import FakeWorld  # noqa: E402
 from harness.experience import ExperienceBook  # noqa: E402
 from harness.gateway import Gateway  # noqa: E402
-from harness.llm import DeepSeekLLM  # noqa: E402
+from harness.llm import make_llm  # noqa: E402
 from harness.loop import build_system, run_agent  # noqa: E402
 from harness.tools.experience import make_experience_tools  # noqa: E402
 from harness.tools.objects import make_tools  # noqa: E402
@@ -132,6 +133,7 @@ def run_once(scenario, variant, llm, cfg, poses, book, trace_path):
     history = []
     answer = ""
     with open(trace_path, "w", encoding="utf-8") as trace:
+        trace.write(json.dumps({"kind": "llm", "data": llm.describe()}, ensure_ascii=False) + "\n")
         for task in scenario["tasks"]:
             gateway.moves = 0
             answer = run_agent(task, llm, recorder, tools, max_steps=cfg["agent"]["max_steps"], trace=trace,
@@ -168,14 +170,15 @@ def main():
     parser.add_argument("names", nargs="*", help="只跑名字里带这些词的场景")
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--variant", choices=["new", "no_experience", "baseline"], default="new")
+    parser.add_argument("--llm", help="用哪个大模型:configs/harness.yaml 里 llms 下的名字,不填用 default_llm")
     args = parser.parse_args()
 
     load_env(ROOT / ".env")
     cfg = yaml.safe_load((ROOT / "configs/harness.yaml").read_text(encoding="utf-8"))
-    llm = DeepSeekLLM(**cfg["llm"])
+    llm = make_llm(cfg, args.llm)
     poses = load_poses()
     book = ExperienceBook(ROOT / "experience")
-    out = ROOT / "traces" / "scenarios" / f"{time.strftime('%Y%m%d_%H%M%S')}_{args.variant}"
+    out = ROOT / "traces" / "scenarios" / f"{time.strftime('%Y%m%d_%H%M%S')}_{args.variant}_{llm.name}"
     out.mkdir(parents=True)
 
     files = sorted((ROOT / "scenarios").glob("*.yaml"))
@@ -207,7 +210,7 @@ def main():
             print(f"  [{rule.get('level', 'must'):6}] {count}/{args.runs}  {rule['label']}", flush=True)
         total_pass += passed_runs
         total_runs += args.runs
-    print(f"\n变体 {args.variant}:must 全过的 {total_pass}/{total_runs} 遍;对话在 {out.relative_to(ROOT)}")
+    print(f"\n变体 {args.variant},模型 {llm.name}({llm.model}):must 全过的 {total_pass}/{total_runs} 遍;对话在 {out.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

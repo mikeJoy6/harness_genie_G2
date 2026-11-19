@@ -89,7 +89,7 @@ flowchart LR
 robot_harness/
 ├── harness/               核心代码
 │   ├── loop.py            Agent 循环:问模型 → 执行工具 → 返回结果
-│   ├── llm.py             DeepSeek 接口(标准库 HTTP)
+│   ├── llm.py             大模型接口(OpenAI 兼容格式,标准库 HTTP;DeepSeek / GPT / 本地)
 │   ├── gateway.py         模型与机器人之间的关卡:坐标计算与安全检查
 │   ├── tools/             给模型看的工具定义
 │   ├── backends/          执行层
@@ -115,7 +115,7 @@ robot_harness/
 - ROS 包：`rclpy`、`tf2_ros`、`urdf_parser_py`、`python3-pykdl`，以及 `moveit_msgs`、`control_msgs` 等消息
 - Python 包：`numpy`、`scipy`、`opencv-python`、`PyYAML`
 - 外部进程：`agi@g2_robot` 的 `hardware.launch.py`（ros2_control + JTC + MoveIt `move_group` + 点云），本机 SAM 3 服务（[docs/sam3_service.md](docs/sam3_service.md)）
-- DeepSeek API key，填写在项目根目录的 `.env`
+- 大模型的 API key，填写在项目根目录的 `.env`(默认 DeepSeek;`--llm gpt` 用 OPENAI_API_KEY)
 
 启动与使用命令见 [`run.txt`](run.txt)，开发过程见 [`devlog.md`](devlog.md)，代码导读见 [`docs/harness_guide.md`](docs/harness_guide.md)，其他设计文档见 [`docs/index.md`](docs/index.md)。
 

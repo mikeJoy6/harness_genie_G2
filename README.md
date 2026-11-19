@@ -99,7 +99,7 @@ python3 scripts/run_task.py "find the phone and touch it"
 python3 scripts/run_task.py --real --plan-only "低头找鼠标,拿起来"
 ```
 
-Put your DeepSeek API key in `.env` at the repository root as `DEEPSEEK_API_KEY=...`. All runnable commands are in [`run.txt`](run.txt) and [`devlog.md`](devlog.md).
+Put your API key in `.env` at the repository root, e.g. `DEEPSEEK_API_KEY=...` (default) or `OPENAI_API_KEY=...` for `--llm gpt`; models are listed under `llms` in `configs/harness.yaml`. All runnable commands are in [`run.txt`](run.txt) and [`devlog.md`](devlog.md).
 
 ## Repository layout
 
@@ -107,7 +107,7 @@ Put your DeepSeek API key in `.env` at the repository root as `DEEPSEEK_API_KEY=
 robot_harness/
 ├── harness/               core code
 │   ├── loop.py            agent loop: ask model → run tools → return results
-│   ├── llm.py             DeepSeek client (standard-library HTTP)
+│   ├── llm.py             LLM client (OpenAI-compatible, standard-library HTTP; DeepSeek / GPT / local)
 │   ├── gateway.py         checkpoint between model and robot: coordinates and safety
 │   ├── tools/             tool schemas shown to the model
 │   ├── backends/          execution layer
@@ -133,7 +133,7 @@ Every folder has its own `README.md`. Design notes, the devlog and code comments
 - ROS packages: `rclpy`, `tf2_ros`, `urdf_parser_py`, `python3-pykdl`, plus `moveit_msgs`, `control_msgs` and other message packages
 - Python packages: `numpy`, `scipy`, `opencv-python`, `PyYAML`
 - External processes: `hardware.launch.py` from `agi@g2_robot` (ros2_control + JTC + MoveIt `move_group` + point cloud) and a local SAM 3 service ([docs/sam3_service.md](docs/sam3_service.md))
-- A DeepSeek API key
+- An API key for an OpenAI-compatible LLM (DeepSeek by default)
 
 ## Known limitations
 

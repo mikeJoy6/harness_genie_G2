@@ -1,9 +1,30 @@
-llm:
-  base_url: https://api.deepseek.com
-  model: deepseek-flash
-  api_key_env: DEEPSEEK_API_KEY
-  thinking: disabled        # enabled 更慢,但模型会先推理
-  timeout_s: 90
+# 大模型:每个一段,起一个名字。run_task.py / run_scenarios.py 用 --llm 名字 选,不填用 default_llm。
+# 加一种模型 = 加一段,不用改代码(harness/llm.py 的 make_llm)。每段的键:
+#   base_url     接口地址(请求发到 <base_url>/chat/completions)
+#   model        模型名
+#   api_key_env  .env 里存 key 的变量名;本地模型不要 key 就写 null
+#   extra_body   (可选)这家特有的请求字段,原样加进请求
+#   timeout_s    一次请求最多等多久
+#   type         (可选)接口类型,默认 chat_completions(OpenAI 格式,绝大多数厂商都兼容)
+default_llm: deepseek
+llms:
+  deepseek:
+    base_url: https://api.deepseek.com
+    model: deepseek-flash
+    api_key_env: DEEPSEEK_API_KEY
+    extra_body:
+      thinking: {type: disabled}   # enabled 更慢,但模型会先推理
+    timeout_s: 90
+  gpt:
+    base_url: https://api.openai.com/v1
+    model: gpt-4.1-mini
+    api_key_env: OPENAI_API_KEY
+    timeout_s: 90
+  # local:                         # 例:本机 / Jetson 上用 vLLM、Ollama 跑的模型,不联网
+  #   base_url: http://127.0.0.1:8000/v1
+  #   model: 模型名
+  #   api_key_env: null
+  #   timeout_s: 120
 
 agent:
   max_steps: 20             # 一条指令最多问模型几轮(每轮 = 模型回一次,可能调一个或多个工具)

@@ -2,11 +2,41 @@
 
 设计文档在 [docs/](docs/index.md),这里只记每天做了什么、遇到什么问题。
 
+# 2026.11.18
+
+## 多种大模型:--llm 名字
+
+用户加了 `--gpt`,问架构是否支持多种 API。结论:`loop.py` 只认 `chat(messages, tools)` 返回的字典、`Session.history` 只存文字,本来就不挑模型;问题在于每加一种都要改 yaml 顶层键 + 开关 + if 分支(`run_scenarios.py` 还写死 DeepSeek),trace 也没记是哪个模型跑的。改成:
+
+1. [configs/harness.yaml](configs/harness.yaml) 的 `llms` 段:每个模型一段,起名字;`default_llm: deepseek`。DeepSeek 的 `thinking` 改放在 `extra_body` 里。加一种模型(OpenAI 兼容的,包括本地 vLLM / Ollama)只要加一段。
+2. [harness/llm.py](harness/llm.py):只留一个 `ChatCompletionsLLM`,加 [make_llm](harness/llm.py#L70)(按名字建),`DeepSeekLLM` / `OpenAILLM` 删掉。格式完全不同的接口以后写新类、在 `LLM_TYPES` 登记。
+3. trace 第一行 `{"kind": "llm", ...}` 记模型;场景结果目录名带模型名。
+4. 测试 [tests/test_llm.py](tests/test_llm.py)(6 个,不联网)。全部 166 个测试 165 过,失败的还是那个已知的 workspace 配置测试。
+5. 文档:[harness_guide.md 第 6 章](docs/harness_guide.md#6-模型接口llmpy) 重写,harness/README、两个 README 各改一两行,run.txt 的 `--gpt` 改成 `--llm gpt`。
+
+```bash
+python3 scripts/run_task.py --real --llm gpt            # 真机,用 GPT
+python3 scripts/run_task.py --llm gpt "右手去手机上方"   # 假机器人,用 GPT
+python3 scripts/run_scenarios.py --llm gpt              # 场景测试,用 GPT
+python3 -m pytest tests/test_llm.py -q
+```
+
+**GPT 场景测试**(gpt-4.1-mini,新 SYSTEM + 经验,每个 3 遍):必须项全过 **9/18**(DeepSeek 11-16 是 18/18)。只问不动、合影全过;拿起 0/3;递东西、击掌经常说“完成了”其实没做到。最关键:**18 遍一次都没调 `read_experience`**,所以拿起时不张开、不下探。对话在 `traces/scenarios/20261118_181256_new_gpt/`。
+
 # 2026.11.17
 
 ## 经验系统的时序图
 
 用户反馈加了经验系统后代码看不懂了。在 [experience/README.md](experience/README.md) 的“代码怎么串起来”里,仿照 [harness_guide.md](docs/harness_guide.md#L52) 的 sequenceDiagram 画了“拿起鼠标 + 模型读了经验”的一次完整流程,替换原来的文字流程图;下面的表格(每步跳到代码行)保留。
+
+## SAM 3 断网实测(为迁到不联网的 Jetson)
+
+用 `unshare -rn` 开一个只有 lo、连不上外网的环境启动服务:10 s 能响应,分割正常,不用登录 Hugging Face。结论写在 [docs/sam3_service.md](docs/sam3_service.md#L75)。第一次没跑完是因为本机内存满(交换分区 2 GB 全用光),`torch.load` 读权重卡住,和网络无关;重启后正常。自己复测:
+
+```bash
+cd ~/sam3_service && env -u all_proxy -u ALL_PROXY -u http_proxy -u https_proxy unshare -rn bash -c 'ip link set lo up; .venv/bin/python server.py --port 8799'
+# 看到“服务已启动”= 断网能起;Ctrl+C 退出
+```
 
 # 2026.11.16
 

@@ -126,7 +126,7 @@ sequenceDiagram
 |---|---|---|---|
 | [scripts/run_task.py](../scripts/run_task.py) | 入口:读配置、组装、启动 | 下面所有 | 你 |
 | [harness/loop.py](../harness/loop.py) | Agent 循环 | 无(只接收 llm 和 gateway 对象) | run_task、测试 |
-| [harness/llm.py](../harness/llm.py) | 调 DeepSeek | 标准库 | run_task |
+| [harness/llm.py](../harness/llm.py) | 调大模型(按 yaml 里的名字选) | 标准库 | run_task、run_scenarios |
 | [harness/tools/objects.py](../harness/tools/objects.py) | 给模型看的物体工具,`make_tools` 汇总全部工具 | tools/motion.py | run_task、测试 |
 | [harness/tools/motion.py](../harness/tools/motion.py) | 给模型看的运动工具 | motion/joints.py | objects.py |
 | [harness/gateway.py](../harness/gateway.py) | 坐标计算与安全检查 | backend 对象、geometry | run_task、测试 |
@@ -142,7 +142,7 @@ sequenceDiagram
 | [configs/poses.yaml](../configs/poses.yaml) | 录好的全身位姿 | — | run_task、goto_pose |
 | [tests/test_objects.py](../tests/test_objects.py) | 离线测试:定位、靠近、颜色 | 上面的纯 Python 部分 | pytest |
 | [tests/test_motion_tools.py](../tests/test_motion_tools.py) | 离线测试:手臂 / 关节组 / 位姿运动工具 | 同上 | pytest |
-| `.env` | DeepSeek key,不提交 | — | run_task |
+| `.env` | 大模型的 key(DEEPSEEK_API_KEY、OPENAI_API_KEY……),不提交 | — | run_task |
 | `traces/` | 运行记录和识别画面 | — | 你排错时看 |
 
 依赖方向只有一个:**入口 → 循环 → 关卡 → 执行层**。`loop.py` 不知道机器人存在,`gateway.py` 不知道模型存在,所以每一层都能单独测试。
@@ -310,59 +310,66 @@ def _execute(call, gateway):
 
 ## 6. 模型接口:llm.py
 
-### 6.1 构造:检查 key
+2026-11-18 起支持多种模型:[configs/harness.yaml](../configs/harness.yaml) 的 `llms` 段里每个模型一段、起一个名字,命令行用 `--llm 名字` 选(不填用 `default_llm`)。OpenAI、DeepSeek、通义、Kimi、本地 vLLM / Ollama 都是同一种接口(OpenAI 的 Chat Completions),**加一种模型只要在 yaml 里加一段,不用改代码**。
 
-[harness/llm.py#L9-L15](../harness/llm.py#L9-L15)
+### 6.1 按名字建模型:make_llm
+
+[harness/llm.py#L70](../harness/llm.py#L70)
 
 ```python
-    def __init__(self, base_url, model, api_key_env, thinking="disabled", timeout_s=90):
-        self.api_key = os.environ.get(api_key_env)
-        if not self.api_key:
-            raise RuntimeError(f"环境变量 {api_key_env} 没有设置")
-        if not self.api_key.isascii():
-            raise RuntimeError(f"{api_key_env} 里有中文或全角字符,请换成 DeepSeek 控制台里真实的 key")
-        self.url = base_url.rstrip("/") + "/chat/completions"
+def make_llm(cfg, name=None):
+    if name is None:
+        name = cfg["default_llm"]
+    profiles = cfg["llms"]
+    if name not in profiles:
+        raise RuntimeError(f"configs/harness.yaml 的 llms 里没有 '{name}',可选:{list(profiles)}")
+    settings = dict(profiles[name])
+    kind = settings.pop("type", "chat_completions")
+    ...
+    return LLM_TYPES[kind](name, **settings)
 ```
 
-`isascii()` 这一行来自一次真实报错:key 被设成了“你的key”,HTTP 头只能是 latin-1 编码,于是报 `UnicodeEncodeError`。现在会直接给出能看懂的提示。
+`run_task.py` 和 `run_scenarios.py` 都只调这一个函数。yaml 那一段的键(`base_url`、`model`、`api_key_env`、`extra_body`、`timeout_s`)原样变成 [ChatCompletionsLLM](../harness/llm.py#L14) 的参数。`type` 留给以后格式不同的接口:写一个新类,在 [LLM_TYPES](../harness/llm.py#L65) 登记。
 
-### 6.2 发请求
+### 6.2 构造:检查 key
 
-[harness/llm.py#L20-L30](../harness/llm.py#L20-L30)
+[harness/llm.py#L17-L29](../harness/llm.py#L17-L29)。`api_key_env` 为 `null` 时不要 key(本地模型)。`isascii()` 这一行来自一次真实报错:key 被设成了“你的key”,HTTP 头只能是 latin-1 编码,于是报 `UnicodeEncodeError`。现在会直接给出能看懂的提示。
+
+### 6.3 发请求
+
+[harness/llm.py#L35-L52](../harness/llm.py#L35-L52)
 
 ```python
-    def chat(self, messages, tools):
-        body = {"model": self.model, "messages": messages, "tools": tools,
-                "thinking": {"type": self.thinking}}
-        request = urllib.request.Request(
-            self.url, data=json.dumps(body, ensure_ascii=False).encode("utf-8"), method="POST",
-            headers={"Content-Type": "application/json", "Authorization": f"Bearer {self.api_key}"})
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                data = json.load(response)
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"模型接口返回 {e.code}:{e.read().decode('utf-8', 'replace')[:500]}") from e
+    def request_body(self, messages, tools):
+        body = {"model": self.model, "messages": messages, "tools": tools}
+        for key in self.extra_body:
+            body[key] = self.extra_body[key]
+        return body
 ```
 
 调用大模型本质上就是**一个 HTTP POST**:请求体里放对话和工具列表,请求头里放 key。这里只用了 Python 标准库,没有用 `openai` 包,避免往 ROS 的 Python 环境里装一堆依赖。
 
-`thinking` 设为 `disabled` 时模型不先推理,响应更快,配置在 [configs/harness.yaml#L5](../configs/harness.yaml#L5)。
+各家特有的字段放在 yaml 的 `extra_body` 里,原样加进请求体。例如 DeepSeek 的 `thinking: {type: disabled}`(不先推理,响应更快)。
 
-### 6.3 统一回复格式
+### 6.4 统一回复格式
 
-[harness/llm.py#L32-L38](../harness/llm.py#L32-L38)
+[harness/llm.py#L54-L60](../harness/llm.py#L54-L60)
 
 ```python
         message = data["choices"][0]["message"]
         reply = {"role": "assistant", "content": message.get("content") or ""}
-        if message.get("reasoning_content"):          # 思考模式下必须原样传回去,否则下一轮报 400
+        if message.get("reasoning_content"):          # DeepSeek 思考模式:必须原样传回去,否则下一轮报 400
             reply["reasoning_content"] = message["reasoning_content"]
         if message.get("tool_calls"):
             reply["tool_calls"] = message["tool_calls"]
         return reply
 ```
 
-`chat()` 返回一个普通 dict。`loop.py` 只依赖这个格式,所以测试里可以用一个照剧本返回 dict 的假模型代替它,见[第 13 章](#13-测试tests)。以后换成本地 Qwen,只要新类的 `chat()` 返回同样格式,其他文件一行都不用改。
+`chat()` 返回一个普通 dict。`loop.py` 只依赖这个格式,所以测试里可以用一个照剧本返回 dict 的假模型代替它,见[第 13 章](#13-测试tests)。
+
+### 6.5 trace 记下是哪个模型
+
+每个 trace 文件第一行是 `{"kind": "llm", "data": {"name": "gpt", "model": "gpt-4.1-mini", "url": ...}}`(来自 [describe](../harness/llm.py#L31))。场景测试的目录名也带模型名:`traces/scenarios/<时间>_<变体>_<模型名>/`。
 
 ---
 

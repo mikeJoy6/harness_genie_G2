@@ -1,0 +1,5 @@
+{"kind": "llm", "data": {"name": "gpt", "model": "gpt-4.1-mini", "url": "https://api.openai.com/v1/chat/completions"}}
+{"kind": "user", "data": "桌上有鼠标吗"}
+{"kind": "assistant", "data": {"role": "assistant", "content": "", "tool_calls": [{"id": "call_NvR2jp7yKqvkK2EksEILNugw", "type": "function", "function": {"name": "find_objects", "arguments": "{\"query\":\"mouse\"}"}}]}}
+{"kind": "tool", "data": {"name": "find_objects", "result": {"ok": true, "query": "mouse", "objects": [{"label": "mouse", "score": 0.9, "xyz_m": [0.65, -0.2, 0.72], "distance_m": 1.079, "offset_from_center_px": [127.0, 200.6], "id": "mouse_1", "shoulder_distance_m": {"left": 0.77, "right": 0.63}, "reachable_by": ["left", "right"]}], "log_dir": "traces/sam3/fake_mouse", "count": 1, "order": "按离相机由近到远,第一个最近", "reach_note": "reachable_by:按现在的腰姿态,离这只手的肩 ≤ 0.8m 的才可能够得着。空也可以直接调 approach_object / touch_object:够不着时程序会自动前倾(≤30°)/ 转腰帮忙;机器人没有底盘移动工具,不要建议走过去"}}}
+{"kind": "assistant", "data": {"role": "assistant", "content": "桌上有一只鼠标，我找到了它，可以够得着。需要我帮你做什么吗？"}}

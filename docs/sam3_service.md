@@ -72,6 +72,8 @@ uv pip install --python .venv/bin/python einops pycocotools psutil scipy   # 官
 
    [`build_sam3_image_model`](../../sam3_service/sam3_repo/sam3/model_builder.py) 第一次也会自己下,但走 Xet,见“踩坑”。
 
+**下载好以后完全离线可用,不用登录**(2026-11-17 断网实测):只有 lo 网卡、外网连不上的环境里,启动 10 s、加载 7.0 s、显存 3410 MB,`red block` / `pen` 分割正常。原因:`load_model` 直接传本机 `sam3.pt` 路径,跳过唯一联网的 `hf_hub_download`;分词表 `sam3/assets/bpe_simple_vocab_16e6.txt.gz` 随源码自带。迁到别的机器只要拷 `sam3.pt`(+ `config.json`)、`sam3_repo`、`server.py`,`.venv` 要按目标机器的架构重装。
+
 ## 启动和测试
 
 ```bash

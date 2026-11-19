@@ -22,7 +22,7 @@
 |---|---|
 | `loop.py` | 循环:问模型 → 执行工具 → 把结果告诉模型;`build_system` 拼系统提示(固定部分 + 经验目录) |
 | `experience.py` | 经验库:读 `experience/*.md`、生成目录、读全文、把大模型提议的经验存进 `experience/pending/`([说明](../docs/experience.md)) |
-| `llm.py` | 通过 HTTP 调用 DeepSeek |
+| `llm.py` | 通过 HTTP 调用大模型;`make_llm` 按 `configs/harness.yaml` 的 `llms` 里的名字选(DeepSeek / GPT / 本地……) |
 | `gateway.py` | 关卡:计算目标点,所有安全检查都在这里 |
 | `motion/` | 运控与绕障规划,见其 README |
 | `perception/` | 头部 RGBD,见其 README |
@@ -31,7 +31,7 @@
 
 ```text
 scripts/run_task.py  组装下面所有东西
-loop.py ── chat() ──→ llm.py ──→ DeepSeek
+loop.py ── chat() ──→ llm.py ──→ DeepSeek / OpenAI / 本地模型(--llm 选)
 loop.py ── tools/objects.py 告诉模型有哪些工具
 loop.py ── execute() ──→ gateway.py ──→ backends/fake.py 或 ros.py
                                           ros.py ──→ motion/(规划、执行)+ perception/(相机)
