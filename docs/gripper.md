@@ -9,7 +9,7 @@
 | 用途 | 接口 | 说明 |
 |---|---|---|
 | 型号、错误码 | `agibot_gdk.Robot().get_whole_body_status()` | `{left,right}_end_model`、`{left,right}_end_error` |
-| 夹爪位置 | `Robot().get_end_state()`(默认不读,`read_position: false`) | 2026-11-12 实测一直 `No end state message found`,读不到。每调一次 GDK 都往终端打一行 `E... hal_impl.cpp:305 No end state message found`(不是 harness 报错);`GdkGripper` 读不到一次后就不再读 |
+| 夹爪位置 | `Robot().get_end_state()`(默认不读,`read_position: false`) | 2026-11-12 实测一直 `No end state message found`,读不到。**2026-11-19 能读了**:`end_states[0]` 有 position / effort / err_code,两手合着时 position 0.0;张开后会不会变还没验证,所以还是默认不读。看实时读数:`agi@g2_robot/view_hand_camera.py` |
 | 下发(默认) | 话题 `/gdk/joint_control`(`gdk_msgs/JointPositionServo`),只带夹爪关节 | 手臂插件也在发这个伺服话题;GDK 文档:与伺服接口同时用时,末端要走伺服接口 |
 | 下发(备选) | `Robot().move_ee_pos(JointStates(group="right_tool"))` | 非阻塞;文档说不能和伺服接口同时用 |
 

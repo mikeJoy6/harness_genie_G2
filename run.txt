@@ -75,6 +75,11 @@ python3 scripts/gripper_cli.py status                      # 只读
 python3 scripts/gripper_cli.py open --arm right            # 直接执行
 python3 scripts/run_task.py --real "你先打开右手夹爪过5秒再闭合"
 
+# 手腕相机(只有 RGB)+ 图上叠加夹爪状态(GDK 只读)
+source ~/agi@g2_robot/env_g2.sh
+source ~/.cache/agibot/app/env.sh
+python3 ~/agi@g2_robot/view_hand_camera.py                  # 两只手;--arm right 只看右手;--no-gripper 不读夹爪
+
 
 
 # ── 吸盘(suction_control,左手 evs08)──────────────────

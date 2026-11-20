@@ -4,6 +4,21 @@
 
 # 2026.11.19
 
+## 真机:夹爪状态能读了;手腕相机只有 RGB
+
+1. **夹爪状态**:GDK `Robot().get_end_state()` 现在有数据了(11-12 一直 "No end state message found")。两只手都是 `names [idx31/idx71_gripper_*_inner_joint1]`,`end_states[0]` 有 position / velocity / effort / err_code;effort 每次读都在变(0.24 / 0.47 / 0.71),是真数据。此时两只手腕相机里夹爪都是合着的,position 都是 0.0,和 omnipicker “0 = 闭合、−0.785 = 全开”对得上。`/gdk/joint_state` 仍然只有 22 个关节,没有夹爪。**还没验证**:张开后 position 会不会跟着变 → 确认前 `read_position` 保持 false(否则读数不变时“打开”会被判成没到位)。
+2. **手腕相机**:`/gdk/camera/hand_{left,right}_color`,jpeg CompressedImage,1280×1056,30Hz,广角,`frame_id` 为空;**没有深度、没有 camera_info**。
+3. 新增 [agi@g2_robot/view_hand_camera.py](../agi@g2_robot/view_hand_camera.py):两只手腕画面并排,图上叠加 GDK 读的夹爪 position(开度 %)/ effort / 错误码(后台线程 5Hz 读,只读)。
+
+```bash
+source ~/agi@g2_robot/env_g2.sh
+source ~/.cache/agibot/app/env.sh
+python3 ~/agi@g2_robot/view_hand_camera.py                  # 两只手 + 夹爪状态
+python3 ~/agi@g2_robot/view_hand_camera.py --arm right      # 只看右手
+python3 ~/agi@g2_robot/view_hand_camera.py --no-gripper     # 不连 GDK
+python3 ~/agi@g2_robot/view_hand_camera.py --save out       # 存一帧就退出
+```
+
 ## 末端:MoveIt 只管形状,驱动按登记表;MuJoCo 4;仿真里控制末端
 
 用户否掉“夹爪接进 ros2_control / MoveIt 规划组”:末端自带减速器,JTC 插值多余;接进 MoveIt 要按末端改控制配置,损害适配。定下分层:**几何**(URDF/SRDF 宏,已有)/ **状态**(`gripper_joint_state.py`,只为 TF)/ **驱动**(harness 直接调)/ **工具**(按末端给大模型)。MoveIt 保持 4 个规划组。
